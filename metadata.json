@@ -1,0 +1,6 @@
+{
+  "name": "Rajpoot Cricket Boys",
+  "description": "Rajpoot Cricket Boys — Glass Edition: Professional cricket scoring, live camera recording, and broadcast overlay video export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
