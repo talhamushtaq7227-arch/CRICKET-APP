@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "User": {
+      "collection": "users",
+      "path": "/users/{userId}",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "displayName": { "type": "string", "required": false },
+        "email": { "type": "string", "required": false },
+        "createdAt": { "type": "timestamp", "required": false },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "SquadPlayer": {
+      "collection": "squad_players",
+      "path": "/users/{userId}/squad_players/{playerId}",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "fullName": { "type": "string", "required": true },
+        "jerseyNumber": { "type": "number", "required": true },
+        "role": { "type": "string", "required": true },
+        "battingHand": { "type": "string", "required": true },
+        "bowlingStyle": { "type": "string", "required": true },
+        "notes": { "type": "string", "required": false },
+        "isActive": { "type": "boolean", "required": true },
+        "createdAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "CloudMatch": {
+      "collection": "matches",
+      "path": "/users/{userId}/matches/{matchId}",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "matchTitle": { "type": "string", "required": true },
+        "tournamentName": { "type": "string", "required": false },
+        "homeTeamName": { "type": "string", "required": true },
+        "awayTeamName": { "type": "string", "required": true },
+        "venue": { "type": "string", "required": true },
+        "matchDateMillis": { "type": "number", "required": true },
+        "format": { "type": "string", "required": true },
+        "totalOvers": { "type": "number", "required": true },
+        "playersPerSide": { "type": "number", "required": true },
+        "tossWinnerTeam": { "type": "string", "required": false },
+        "tossDecision": { "type": "string", "required": false },
+        "battingFirstTeam": { "type": "string", "required": false },
+        "currentInnings": { "type": "number", "required": true },
+        "targetRuns": { "type": "number", "required": false },
+        "isCompleted": { "type": "boolean", "required": true },
+        "winnerTeam": { "type": "string", "required": false },
+        "winMargin": { "type": "string", "required": false },
+        "createdAt": { "type": "timestamp", "required": false },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    }
+  }
+}

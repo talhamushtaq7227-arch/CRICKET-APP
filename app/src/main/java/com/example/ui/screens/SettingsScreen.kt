@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,8 +22,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
@@ -30,6 +37,7 @@ import androidx.compose.material.icons.filled.SportsCricket
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -92,6 +100,8 @@ fun SettingsScreen(
     val overlayScale by viewModel.overlayScaleSetting.collectAsStateWithLifecycle()
     val muteAudio by viewModel.muteAudioSetting.collectAsStateWithLifecycle()
     val hapticEnabled by viewModel.preferencesRepository.hapticFeedbackFlow.collectAsStateWithLifecycle(true)
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val isAuthenticating by viewModel.isAuthenticating.collectAsStateWithLifecycle()
 
     var teamNameInput by remember(currentTeamName) { mutableStateOf(currentTeamName) }
     var styleExpanded by remember { mutableStateOf(false) }
@@ -251,6 +261,150 @@ fun SettingsScreen(
                             },
                             colors = SwitchDefaults.colors(checkedThumbColor = GoldPrimary, checkedTrackColor = GoldDark)
                         )
+                    }
+                }
+            }
+        }
+
+        // Section: Google Cloud Sync (Firebase Firestore)
+        item {
+            Text("GOOGLE ACCOUNT & CLOUD SYNC", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        }
+
+        item {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (currentUser == null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(CharcoalElevated),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "Account",
+                                    tint = GoldPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Cloud Backup & Sync", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Sign in with Google to sync your squad and match statistics to Cloud Firestore", color = TextSecondary, fontSize = 11.sp)
+                            }
+                        }
+
+                        if (isAuthenticating) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = GoldPrimary, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Signing in with Google...", color = TextGold, fontSize = 12.sp)
+                            }
+                        } else {
+                            GoldButton(
+                                text = "Sign in with Google",
+                                onClick = {
+                                    (context as? Activity)?.let { act ->
+                                        viewModel.signInWithGoogle(act)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                leadingIcon = {
+                                    Icon(Icons.Default.Login, contentDescription = null, tint = CharcoalBlack, modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+                    } else {
+                        // User is signed in
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(GoldDark),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "User Avatar",
+                                    tint = GoldBright,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = currentUser?.displayName ?: "Cricket Captain",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = currentUser?.email ?: "Google Account",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0x224CAF50))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("Connected", color = Color(0xFF81C784), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedGoldButton(
+                                text = "Restore Cloud",
+                                onClick = {
+                                    viewModel.restoreFromCloud { success, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = GoldBright, modifier = Modifier.size(16.dp))
+                                }
+                            )
+
+                            GoldButton(
+                                text = "Backup Cloud",
+                                onClick = {
+                                    viewModel.backupToCloud { success, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, tint = CharcoalBlack, modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+
+                        TextButton(
+                            onClick = { viewModel.signOut() },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.Logout, contentDescription = null, tint = AccentWicket, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Sign Out", color = AccentWicket, fontSize = 12.sp)
+                        }
                     }
                 }
             }

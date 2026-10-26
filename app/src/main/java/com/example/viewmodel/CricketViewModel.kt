@@ -1,8 +1,10 @@
 package com.example.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.auth.AuthManager
 import com.example.camera.CameraManager
 import com.example.camera.RecordingStatus
 import com.example.data.local.AppDatabase
@@ -17,6 +19,7 @@ import com.example.data.model.PlayerEntity
 import com.example.data.model.PlayerRole
 import com.example.data.model.TossDecision
 import com.example.data.model.WicketType
+import com.example.data.repository.CloudCricketRepository
 import com.example.data.repository.CricketRepository
 import com.example.data.repository.PreferencesRepository
 import com.example.domain.engine.CricketRulesEngine
@@ -24,6 +27,7 @@ import com.example.domain.engine.InningsLiveState
 import com.example.domain.engine.PlayerStats
 import com.example.video.ScoreboardVideoExporter
 import com.example.video.VideoExportState
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +49,11 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     val preferencesRepository = PreferencesRepository(application)
     val cameraManager = CameraManager(application)
     val videoExporter = ScoreboardVideoExporter(application)
+    val authManager = AuthManager(application)
+    val cloudRepository = CloudCricketRepository(application)
+
+    val currentUser: StateFlow<FirebaseUser?> = authManager.currentUser
+    val isAuthenticating: StateFlow<Boolean> = authManager.isAuthenticating
 
     // Data streams
     val allPlayers: StateFlow<List<PlayerEntity>> = repository.getAllPlayers()
@@ -402,4 +411,81 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             else -> "$bowler to $striker, $runsOffBat runs taken."
         }
     }
+
+    // Google Sign-In & Firebase Cloud Sync
+    fun signInWithGoogle(activity: Activity) {
+        authManager.signInWithGoogle(
+            activity = activity,
+            scope = viewModelScope,
+            onSuccess = { user ->
+                viewModelScope.launch {
+                    _userMessage.emit("Welcome, ${user.displayName ?: "Cricket Fan"}!")
+                }
+            },
+            onError = { err ->
+                viewModelScope.launch {
+                    _userMessage.emit(err)
+                }
+            }
+        )
+    }
+
+    fun signOut() {
+        authManager.signOut(viewModelScope) {
+            viewModelScope.launch {
+                _userMessage.emit("Signed out of Google account")
+            }
+        }
+    }
+
+    fun backupToCloud(onComplete: (Boolean, String) -> Unit) {
+        val user = currentUser.value
+        if (user == null) {
+            onComplete(false, "Please sign in with Google first to backup your data.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val players = allPlayers.value
+                val matches = allMatches.value
+                val result = cloudRepository.backupAllDataToCloud(
+                    players = players,
+                    matches = matches,
+                    fetchDeliveriesForMatch = { matchId ->
+                        repository.getDeliveriesForMatchSnapshot(matchId)
+                    }
+                )
+                if (result.isSuccess) {
+                    onComplete(true, "Successfully backed up ${result.getOrNull() ?: 0} records to Cloud Firestore!")
+                } else {
+                    onComplete(false, result.exceptionOrNull()?.localizedMessage ?: "Backup failed")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.localizedMessage ?: "Failed to backup data")
+            }
+        }
+    }
+
+    fun restoreFromCloud(onComplete: (Boolean, String) -> Unit) {
+        val user = currentUser.value
+        if (user == null) {
+            onComplete(false, "Please sign in with Google first to restore your data.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val result = cloudRepository.restoreDataFromCloud()
+                if (result.isSuccess) {
+                    onComplete(true, "Successfully connected to Cloud Firestore (${result.getOrNull()} cloud records available).")
+                } else {
+                    onComplete(false, result.exceptionOrNull()?.localizedMessage ?: "Restore failed")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.localizedMessage ?: "Failed to restore data")
+            }
+        }
+    }
 }
+
