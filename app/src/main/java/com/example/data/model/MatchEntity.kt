@@ -9,6 +9,7 @@ data class MatchEntity(
     val id: Long = 0,
     val matchTitle: String,
     val tournamentName: String = "",
+    val season: String = "2026",
     val homeTeamName: String = "Rajpoot Cricket Boys",
     val awayTeamName: String,
     val venue: String = "RCB Cricket Ground",

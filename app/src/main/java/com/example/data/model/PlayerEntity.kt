@@ -14,6 +14,8 @@ data class PlayerEntity(
     val bowlingStyle: BowlingStyle = BowlingStyle.RIGHT_ARM_MEDIUM,
     val photoUri: String? = null,
     val notes: String? = null,
+    val isCaptain: Boolean = false,
+    val isViceCaptain: Boolean = false,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 )

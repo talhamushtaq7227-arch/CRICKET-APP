@@ -13,6 +13,12 @@ import com.example.data.model.OverlayStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+enum class GlassThemeMode(val displayName: String) {
+    DARK("Dark Liquid Glass"),
+    WHITE("White Liquid Glass"),
+    SYSTEM("Auto (System)")
+}
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "rcb_settings")
 
 class PreferencesRepository(private val context: Context) {
@@ -24,6 +30,7 @@ class PreferencesRepository(private val context: Context) {
         val KEY_OVERLAY_SCALE = floatPreferencesKey("overlay_scale")
         val KEY_MUTE_AUDIO = booleanPreferencesKey("mute_audio")
         val KEY_HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
+        val KEY_GLASS_THEME = stringPreferencesKey("glass_theme_mode")
     }
 
     val teamNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -51,6 +58,11 @@ class PreferencesRepository(private val context: Context) {
         preferences[KEY_HAPTIC_FEEDBACK] ?: true
     }
 
+    val glassThemeFlow: Flow<GlassThemeMode> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_GLASS_THEME] ?: GlassThemeMode.DARK.name
+        runCatching { GlassThemeMode.valueOf(raw) }.getOrDefault(GlassThemeMode.DARK)
+    }
+
     suspend fun setTeamName(name: String) {
         context.dataStore.edit { it[KEY_TEAM_NAME] = name }
     }
@@ -73,5 +85,9 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setHapticFeedback(enabled: Boolean) {
         context.dataStore.edit { it[KEY_HAPTIC_FEEDBACK] = enabled }
+    }
+
+    suspend fun setGlassTheme(mode: GlassThemeMode) {
+        context.dataStore.edit { it[KEY_GLASS_THEME] = mode.name }
     }
 }

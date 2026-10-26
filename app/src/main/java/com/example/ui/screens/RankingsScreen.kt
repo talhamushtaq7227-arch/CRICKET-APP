@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -35,15 +39,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.domain.engine.PlayerStats
+import coil.compose.AsyncImage
+import com.example.domain.engine.PlayerDetailedStatistics
+import com.example.domain.engine.PlayerStatisticsCalculator
+import com.example.domain.engine.SquadRankingItem
 import com.example.ui.components.GlassCard
-import com.example.ui.theme.AccentFour
-import com.example.ui.theme.AccentSix
 import com.example.ui.theme.CharcoalBlack
+import com.example.ui.theme.CharcoalCard
 import com.example.ui.theme.CharcoalDark
 import com.example.ui.theme.CharcoalElevated
 import com.example.ui.theme.GoldBright
@@ -55,141 +62,209 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.viewmodel.CricketViewModel
 
+import com.example.ui.components.InteractiveGlassCard
+import com.example.ui.theme.LiquidGlassTheme
+
 @Composable
 fun RankingsScreen(
-    viewModel: CricketViewModel
+    viewModel: CricketViewModel,
+    onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToComparison: (Long) -> Unit = {}
 ) {
-    val rankings by viewModel.rankings.collectAsStateWithLifecycle()
+    val tokens = LiquidGlassTheme.tokens
+    val players by viewModel.allPlayers.collectAsStateWithLifecycle()
+    val matches by viewModel.allMatches.collectAsStateWithLifecycle()
+    val deliveries by viewModel.allDeliveries.collectAsStateWithLifecycle()
+    val seasons by viewModel.distinctSeasons.collectAsStateWithLifecycle()
+    val tournaments by viewModel.distinctTournaments.collectAsStateWithLifecycle()
+
+    var selectedSeasonFilter by remember { mutableStateOf<String?>(null) }
+    var selectedTournamentFilter by remember { mutableStateOf<String?>(null) }
     var selectedCategoryIndex by remember { mutableStateOf(0) }
 
     val categories = listOf(
-        "Top Runs",
-        "Top Wickets",
+        "Most Runs",
+        "Most Wickets",
         "Highest Score",
+        "Batting Average",
         "Strike Rate",
-        "Economy",
-        "Boundaries"
+        "Best Bowling",
+        "Economy Rate",
+        "Most 4s",
+        "Most 6s"
     )
 
-    val hasActiveStats = rankings.any { it.runs > 0 || it.wickets > 0 }
+    // Compute detailed stats for every player under current period filter
+    val allDetailedStats = remember(players, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter) {
+        players.map { p ->
+            PlayerStatisticsCalculator.calculatePlayerStatistics(
+                player = p,
+                matches = matches,
+                deliveries = deliveries,
+                seasonFilter = selectedSeasonFilter,
+                tournamentFilter = selectedTournamentFilter
+            )
+        }
+    }
+
+    val rankingItems = remember(selectedCategoryIndex, allDetailedStats) {
+        PlayerStatisticsCalculator.computeSquadRankings(selectedCategoryIndex, allDetailedStats)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CharcoalBlack)
+            .background(Color.Transparent)
     ) {
+        // Header
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Club Leaderboard & Rankings",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-            Text(
-                text = "Calculated in real-time from official scorecard deliveries",
-                color = TextSecondary,
-                fontSize = 12.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Club Leaderboard & Rankings",
+                        color = tokens.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    )
+                    Text(
+                        text = "Real-time squad rankings from official scorecard deliveries",
+                        color = tokens.textSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(tokens.glassCardElevated)
+                        .border(1.dp, tokens.accentGold, RoundedCornerShape(12.dp))
+                        .clickable { onNavigateToComparison(0L) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.CompareArrows,
+                            contentDescription = "Compare",
+                            tint = tokens.accentGold,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Compare",
+                            color = tokens.accentGold,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
 
+        // Period filter bar
+        PeriodFilterBar(
+            availableSeasons = seasons,
+            availableTournaments = tournaments,
+            selectedSeason = selectedSeasonFilter,
+            selectedTournament = selectedTournamentFilter,
+            onSelectSeason = { selectedSeasonFilter = it },
+            onSelectTournament = { selectedTournamentFilter = it }
+        )
+
+        // Categories Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedCategoryIndex,
-            containerColor = CharcoalDark,
-            contentColor = GoldPrimary,
+            containerColor = tokens.glassCardElevated,
+            contentColor = tokens.accentGold,
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedCategoryIndex]),
-                    color = GoldPrimary,
+                    color = tokens.accentGold,
                     height = 3.dp
                 )
             }
         ) {
-            categories.forEachIndexed { index, title ->
+            categories.forEachIndexed { index, name ->
                 Tab(
                     selected = selectedCategoryIndex == index,
                     onClick = { selectedCategoryIndex = index },
                     text = {
                         Text(
-                            text = title,
-                            fontWeight = if (selectedCategoryIndex == index) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedCategoryIndex == index) GoldBright else TextSecondary
+                            text = name,
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedCategoryIndex == index) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selectedCategoryIndex == index) tokens.accentGold else tokens.textSecondary
                         )
                     }
                 )
             }
         }
 
-        if (!hasActiveStats) {
+        // Qualification / Period Note
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(tokens.glassCardElevated)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            val qualificationText = when (selectedCategoryIndex) {
+                3 -> "Qualification: Minimum 1 dismissal required • Denominator zero handled as N/A"
+                4 -> "Qualification: Minimum 10 balls faced required"
+                6 -> "Qualification: Minimum 6 legal balls (1 over) bowled required"
+                else -> "Rankings derived directly from saved ball-by-ball scorecards"
+            }
+            Text(
+                text = qualificationText,
+                color = tokens.textSecondary,
+                fontSize = 11.sp
+            )
+        }
+
+        // Ranking List
+        if (rankingItems.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    backgroundColor = Color(0x66161622)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = GoldLight, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No Official Stats Yet",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Leaderboard rankings are calculated strictly from real match deliveries. Play and record your first match to generate player leaderboards.",
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = tokens.accentGold,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No Qualifying Records Found",
+                        color = tokens.textPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Complete matches with official deliveries to populate the squad leaderboard",
+                        color = tokens.textSecondary,
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
             }
         } else {
-            // Sort list according to selected category
-            val sortedList = when (selectedCategoryIndex) {
-                0 -> rankings.filter { it.runs > 0 }.sortedByDescending { it.runs }
-                1 -> rankings.filter { it.wickets > 0 }.sortedByDescending { it.wickets }
-                2 -> rankings.filter { it.highestScore > 0 }.sortedByDescending { it.highestScore }
-                3 -> rankings.filter { it.ballsFaced >= 10 }.sortedByDescending { it.strikeRate }
-                4 -> rankings.filter { it.legalBallsBowled >= 12 }.sortedBy { it.bowlingEconomy ?: 999.0 }
-                5 -> rankings.filter { (it.fours + it.sixes) > 0 }.sortedByDescending { (it.fours * 4) + (it.sixes * 6) }
-                else -> rankings
-            }
-
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item {
-                    val criteriaNote = when (selectedCategoryIndex) {
-                        3 -> "Qualifying threshold: Minimum 10 balls faced."
-                        4 -> "Qualifying threshold: Minimum 2 overs (12 legal balls) bowled."
-                        5 -> "Ranked by boundary runs (Fours x4 + Sixes x6)."
-                        else -> "Ranked by total recorded statistics across all matches."
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(criteriaNote, color = TextMuted, fontSize = 11.sp)
-                    }
-                }
-
-                itemsIndexed(sortedList) { index, playerStats ->
-                    LeaderboardItemCard(
-                        rank = index + 1,
-                        stats = playerStats,
-                        categoryIndex = selectedCategoryIndex
+                items(rankingItems) { item ->
+                    RankingRowCard(
+                        item = item,
+                        onClick = { onNavigateToProfile(item.player.id) }
                     )
                 }
             }
@@ -198,85 +273,125 @@ fun RankingsScreen(
 }
 
 @Composable
-fun LeaderboardItemCard(
-    rank: Int,
-    stats: PlayerStats,
-    categoryIndex: Int
+fun RankingRowCard(
+    item: SquadRankingItem,
+    onClick: () -> Unit
 ) {
-    val rankColor = when (rank) {
-        1 -> GoldPrimary
-        2 -> Color(0xFFC0C0C0)
-        3 -> Color(0xFFCD7F32)
-        else -> TextMuted
+    val tokens = LiquidGlassTheme.tokens
+    val isTop3 = item.rank <= 3
+    val rankBadgeColor = when (item.rank) {
+        1 -> tokens.accentGold
+        2 -> Color(0xFFC0C0C0) // Silver
+        3 -> Color(0xFFCD7F32) // Bronze
+        else -> tokens.glassCardElevated
     }
 
-    GlassCard(
+    val rankTextColor = if (isTop3) tokens.buttonContent else tokens.textSecondary
+
+    InteractiveGlassCard(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        backgroundColor = Color(0xCC161622),
-        borderColor = if (rank == 1) GoldBright else Color(0x22D4AF37)
+        backgroundColor = if (item.rank == 1) tokens.glassCardElevated else tokens.glassCardBackground,
+        borderColor = if (item.rank == 1) tokens.accentGold else tokens.glassBorder
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Rank Badge
+            // Rank badge
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
-                    .background(if (rank <= 3) rankColor else CharcoalElevated),
+                    .background(rankBadgeColor),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "#$rank",
-                    color = if (rank <= 3) CharcoalBlack else Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 13.sp
-                )
+                if (item.rank == 1) {
+                    Icon(
+                        imageVector = Icons.Default.EmojiEvents,
+                        contentDescription = "Leader",
+                        tint = tokens.buttonContent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        text = "${item.rank}",
+                        color = rankTextColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stats.playerName,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Text(
-                    text = "${stats.matchesPlayed} matches • ${stats.inningsBatted} innings",
-                    color = TextSecondary,
-                    fontSize = 11.sp
-                )
-            }
-
-            // Stat Value
-            Column(horizontalAlignment = Alignment.End) {
-                val (primaryText, subText) = when (categoryIndex) {
-                    0 -> Pair("${stats.runs} runs", "Avg: ${stats.formattedBattingAverage} | SR: ${stats.formattedStrikeRate}")
-                    1 -> Pair("${stats.wickets} wickets", "Econ: ${stats.formattedBowlingEconomy} | Best: ${stats.bestBowlingFigures}")
-                    2 -> Pair("${stats.highestScore}* HS", "${stats.runs} total runs")
-                    3 -> Pair("${stats.formattedStrikeRate} SR", "${stats.runs} runs off ${stats.ballsFaced} balls")
-                    4 -> Pair("${stats.formattedBowlingEconomy} Econ", "${stats.runsConceded} runs in ${stats.formattedOversBowled} ov")
-                    5 -> Pair("${stats.fours} x 4s | ${stats.sixes} x 6s", "${(stats.fours * 4) + (stats.sixes * 6)} boundary runs")
-                    else -> Pair("${stats.runs} runs", "${stats.wickets} wkts")
+            // Player Avatar / Photo
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(tokens.glassCardElevated)
+                    .border(1.dp, tokens.accentGold, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!item.player.photoUri.isNullOrBlank()) {
+                    AsyncImage(
+                        model = item.player.photoUri,
+                        contentDescription = item.player.fullName,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else if (item.player.jerseyNumber > 0) {
+                    Text(
+                        text = "#${item.player.jerseyNumber}",
+                        color = tokens.accentGold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = tokens.accentGold)
                 }
+            }
 
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Name & Role
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.player.fullName,
+                        color = tokens.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    if (item.player.isCaptain) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "(C)",
+                            color = tokens.accentGold,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Text(
-                    text = primaryText,
-                    color = GoldBright,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp
-                )
-                Text(
-                    text = subText,
-                    color = TextSecondary,
+                    text = item.secondaryValue,
+                    color = tokens.textSecondary,
                     fontSize = 11.sp
                 )
             }
+
+            // Primary Stat Value
+            Text(
+                text = item.primaryValue,
+                color = if (isTop3) tokens.accentGold else tokens.textPrimary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp
+            )
         }
     }
 }

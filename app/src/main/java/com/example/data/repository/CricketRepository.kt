@@ -25,6 +25,7 @@ class CricketRepository(
     fun getAllPlayers(): Flow<List<PlayerEntity>> = playerDao.getAllPlayers()
     fun getActivePlayers(): Flow<List<PlayerEntity>> = playerDao.getActivePlayers()
     suspend fun getPlayerById(id: Long): PlayerEntity? = playerDao.getPlayerById(id)
+    fun observePlayerById(id: Long): Flow<PlayerEntity?> = playerDao.observePlayerById(id)
     suspend fun insertPlayer(player: PlayerEntity): Long = playerDao.insertPlayer(player)
     suspend fun updatePlayer(player: PlayerEntity) = playerDao.updatePlayer(player)
     suspend fun setPlayerActive(id: Long, isActive: Boolean) = playerDao.setPlayerActive(id, isActive)
@@ -35,6 +36,8 @@ class CricketRepository(
     fun getCompletedMatches(): Flow<List<MatchEntity>> = matchDao.getCompletedMatches()
     fun getLatestUnfinishedMatch(): Flow<MatchEntity?> = matchDao.getLatestUnfinishedMatch()
     fun observeMatchById(id: Long): Flow<MatchEntity?> = matchDao.observeMatchById(id)
+    fun getDistinctSeasons(): Flow<List<String>> = matchDao.getDistinctSeasons()
+    fun getDistinctTournaments(): Flow<List<String>> = matchDao.getDistinctTournaments()
     suspend fun getMatchById(id: Long): MatchEntity? = matchDao.getMatchById(id)
     suspend fun insertMatch(match: MatchEntity): Long = matchDao.insertMatch(match)
     suspend fun updateMatch(match: MatchEntity) = matchDao.updateMatch(match)
@@ -44,6 +47,7 @@ class CricketRepository(
     }
 
     // Deliveries
+    fun getAllDeliveries(): Flow<List<BallDeliveryEntity>> = ballDeliveryDao.getAllDeliveries()
     fun getDeliveriesForMatch(matchId: Long): Flow<List<BallDeliveryEntity>> =
         ballDeliveryDao.getDeliveriesForMatch(matchId)
 
@@ -169,6 +173,7 @@ class CricketRepository(
                 put("id", match.id)
                 put("matchTitle", match.matchTitle)
                 put("tournamentName", match.tournamentName)
+                put("season", match.season)
                 put("homeTeamName", match.homeTeamName)
                 put("awayTeamName", match.awayTeamName)
                 put("venue", match.venue)
@@ -226,6 +231,7 @@ class CricketRepository(
             val matchEntity = MatchEntity(
                 matchTitle = matchObj.getString("matchTitle"),
                 tournamentName = matchObj.optString("tournamentName", ""),
+                season = matchObj.optString("season", "2026"),
                 homeTeamName = matchObj.getString("homeTeamName"),
                 awayTeamName = matchObj.getString("awayTeamName"),
                 venue = matchObj.optString("venue", "Cricket Ground"),

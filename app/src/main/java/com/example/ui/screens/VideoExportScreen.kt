@@ -219,11 +219,21 @@ fun VideoExportScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                val playableUri = state.mediaStoreUri ?: try {
+                                    androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.provider",
+                                        state.exportedFile
+                                    )
+                                } catch (_: Exception) {
+                                    Uri.fromFile(state.exportedFile)
+                                }
+
                                 GoldButton(
                                     text = "Play Video",
                                     onClick = {
                                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(state.mediaStoreUri ?: Uri.fromFile(state.exportedFile), "video/mp4")
+                                            setDataAndType(playableUri, "video/mp4")
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
                                         context.startActivity(Intent.createChooser(intent, "Play Exported Video"))
@@ -237,7 +247,7 @@ fun VideoExportScreen(
                                     onClick = {
                                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "video/mp4"
-                                            putExtra(Intent.EXTRA_STREAM, state.mediaStoreUri ?: Uri.fromFile(state.exportedFile))
+                                            putExtra(Intent.EXTRA_STREAM, playableUri)
                                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         }
                                         context.startActivity(Intent.createChooser(shareIntent, "Share Match Video"))

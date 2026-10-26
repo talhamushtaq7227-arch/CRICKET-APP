@@ -24,6 +24,8 @@ import com.example.data.repository.CricketRepository
 import com.example.data.repository.PreferencesRepository
 import com.example.domain.engine.CricketRulesEngine
 import com.example.domain.engine.InningsLiveState
+import com.example.domain.engine.PlayerDetailedStatistics
+import com.example.domain.engine.PlayerStatisticsCalculator
 import com.example.domain.engine.PlayerStats
 import com.example.video.ScoreboardVideoExporter
 import com.example.video.VideoExportState
@@ -37,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,6 +68,15 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     val allMatches: StateFlow<List<MatchEntity>> = repository.getAllMatches()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allDeliveries: StateFlow<List<BallDeliveryEntity>> = repository.getAllDeliveries()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val distinctSeasons: StateFlow<List<String>> = repository.getDistinctSeasons()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("2026"))
+
+    val distinctTournaments: StateFlow<List<String>> = repository.getDistinctTournaments()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val latestUnfinishedMatch: StateFlow<MatchEntity?> = repository.getLatestUnfinishedMatch()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -82,6 +94,9 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
     val muteAudioSetting: StateFlow<Boolean> = preferencesRepository.muteAudioFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val glassThemeSetting: StateFlow<com.example.data.repository.GlassThemeMode> = preferencesRepository.glassThemeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.data.repository.GlassThemeMode.DARK)
 
     // Active Match & Live Scoring State
     private val _currentMatch = MutableStateFlow<MatchEntity?>(null)
@@ -114,6 +129,20 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     _currentMatchDeliveries.value = emptyList()
                     _inningsLiveState.value = InningsLiveState()
+                }
+            }
+        }
+
+        // Auto-update match sourceVideoPath when camera recording is finalized
+        viewModelScope.launch {
+            cameraManager.recordingStatus.collect { status ->
+                if (status is com.example.camera.RecordingStatus.Completed) {
+                    val match = _currentMatch.value
+                    if (match != null) {
+                        val updated = match.copy(sourceVideoPath = status.file.absolutePath)
+                        repository.updateMatch(updated)
+                        _currentMatch.value = updated
+                    }
                 }
             }
         }
@@ -280,6 +309,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     fun createMatch(
         title: String,
         tournament: String,
+        season: String = "2026",
         homeTeam: String,
         awayTeam: String,
         venue: String,
@@ -297,6 +327,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             val match = MatchEntity(
                 matchTitle = title,
                 tournamentName = tournament,
+                season = season.ifBlank { "2026" },
                 homeTeamName = homeTeam.ifEmpty { "Rajpoot Cricket Boys" },
                 awayTeamName = awayTeam,
                 venue = venue.ifEmpty { "RCB Cricket Ground" },
@@ -314,6 +345,13 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             val id = repository.insertMatch(match)
             loadMatch(id)
             onCreated(id)
+        }
+    }
+
+    fun insertPlayer(player: PlayerEntity) {
+        viewModelScope.launch {
+            repository.insertPlayer(player)
+            _userMessage.emit("Player ${player.fullName} added to squad")
         }
     }
 
@@ -349,7 +387,57 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     fun deletePlayer(id: Long) {
         viewModelScope.launch {
             repository.deletePlayer(id)
-            _userMessage.emit("Player removed")
+            _userMessage.emit("Player removed from squad")
+        }
+    }
+
+    fun setPlayerCaptain(playerId: Long) {
+        viewModelScope.launch {
+            val players = allPlayers.value
+            players.forEach { p ->
+                if (p.id == playerId) {
+                    repository.updatePlayer(p.copy(isCaptain = true, isViceCaptain = false))
+                } else if (p.isCaptain) {
+                    repository.updatePlayer(p.copy(isCaptain = false))
+                }
+            }
+            _userMessage.emit("Captain designated")
+        }
+    }
+
+    fun setPlayerViceCaptain(playerId: Long) {
+        viewModelScope.launch {
+            val players = allPlayers.value
+            players.forEach { p ->
+                if (p.id == playerId) {
+                    repository.updatePlayer(p.copy(isViceCaptain = true, isCaptain = false))
+                } else if (p.isViceCaptain) {
+                    repository.updatePlayer(p.copy(isViceCaptain = false))
+                }
+            }
+            _userMessage.emit("Vice-Captain designated")
+        }
+    }
+
+    fun updatePlayerPhoto(playerId: Long, photoUri: String?) {
+        viewModelScope.launch {
+            val player = repository.getPlayerById(playerId) ?: return@launch
+            repository.updatePlayer(player.copy(photoUri = photoUri))
+            _userMessage.emit(if (photoUri != null) "Player photo updated" else "Photo removed")
+        }
+    }
+
+    fun setPlayerActive(playerId: Long, isActive: Boolean) {
+        viewModelScope.launch {
+            repository.setPlayerActive(playerId, isActive)
+            _userMessage.emit(if (isActive) "Player marked active" else "Player marked inactive")
+        }
+    }
+
+    fun setGlassTheme(mode: com.example.data.repository.GlassThemeMode) {
+        viewModelScope.launch {
+            preferencesRepository.setGlassTheme(mode)
+            _userMessage.emit("Theme changed to ${mode.displayName}")
         }
     }
 
@@ -486,6 +574,11 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
                 onComplete(false, e.localizedMessage ?: "Failed to restore data")
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        cameraManager.release()
     }
 }
 

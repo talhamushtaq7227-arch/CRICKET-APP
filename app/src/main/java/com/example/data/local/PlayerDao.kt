@@ -19,6 +19,9 @@ interface PlayerDao {
     @Query("SELECT * FROM players WHERE id = :id LIMIT 1")
     suspend fun getPlayerById(id: Long): PlayerEntity?
 
+    @Query("SELECT * FROM players WHERE id = :id LIMIT 1")
+    fun observePlayerById(id: Long): Flow<PlayerEntity?>
+
     @Query("SELECT * FROM players WHERE fullName = :name LIMIT 1")
     suspend fun getPlayerByName(name: String): PlayerEntity?
 

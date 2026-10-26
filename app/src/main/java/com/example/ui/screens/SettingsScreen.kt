@@ -65,7 +65,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.repository.GlassThemeMode
+import com.example.ui.components.InteractiveGlassCard
+import com.example.ui.components.LiquidGlassThemeToggle
+import com.example.ui.theme.LiquidGlassTheme
 import com.example.data.model.OverlayStyle
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GoldButton
@@ -93,7 +104,9 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val tokens = LiquidGlassTheme.tokens
 
+    val currentGlassTheme by viewModel.glassThemeSetting.collectAsStateWithLifecycle()
     val currentTeamName by viewModel.teamNameSetting.collectAsStateWithLifecycle()
     val defaultOvers by viewModel.preferencesRepository.defaultOversFlow.collectAsStateWithLifecycle(20)
     val currentOverlayStyle by viewModel.overlayStyleSetting.collectAsStateWithLifecycle()
@@ -114,38 +127,202 @@ fun SettingsScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(CharcoalBlack),
+            .background(Color.Transparent),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text(
-                text = "Settings & Customization",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-            Text(
-                text = "Customize club identity, camera recording & broadcast overlays",
-                color = TextSecondary,
-                fontSize = 12.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Settings & Customization",
+                        color = tokens.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    )
+                    Text(
+                        text = "Customize club identity, liquid glass theme & broadcast overlays",
+                        color = tokens.textSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+                LiquidGlassThemeToggle(
+                    currentMode = currentGlassTheme,
+                    onToggle = { viewModel.setGlassTheme(it) }
+                )
+            }
+        }
+
+        // Section: Liquid Glass Theme Mode
+        item {
+            Text("LIQUID GLASS INTERFACE THEME", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        }
+
+        item {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = tokens.glassCardBackground,
+                borderColor = tokens.glassBorder
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Dynamic iOS Translucency Mode",
+                        color = tokens.textPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Choose between deep obsidian smoked glass with metallic gold, or milky pearl ice glass with high daylight contrast.",
+                        color = tokens.textSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Dark Liquid Glass Option
+                        val isDarkSelected = currentGlassTheme == GlassThemeMode.DARK
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isDarkSelected) tokens.accentGold.copy(alpha = 0.2f) else tokens.glassCardInner)
+                                .border(
+                                    width = if (isDarkSelected) 2.dp else 1.dp,
+                                    color = if (isDarkSelected) tokens.accentGold else tokens.glassBorder,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable { viewModel.setGlassTheme(GlassThemeMode.DARK) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.DarkMode,
+                                    contentDescription = "Dark Theme",
+                                    tint = if (isDarkSelected) tokens.accentGold else tokens.textSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Dark Glass",
+                                    color = if (isDarkSelected) tokens.accentGold else tokens.textPrimary,
+                                    fontWeight = if (isDarkSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "Obsidian Gold",
+                                    color = tokens.textSecondary,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        // White Liquid Glass Option
+                        val isWhiteSelected = currentGlassTheme == GlassThemeMode.WHITE
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isWhiteSelected) tokens.accentGold.copy(alpha = 0.2f) else tokens.glassCardInner)
+                                .border(
+                                    width = if (isWhiteSelected) 2.dp else 1.dp,
+                                    color = if (isWhiteSelected) tokens.accentGold else tokens.glassBorder,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable { viewModel.setGlassTheme(GlassThemeMode.WHITE) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.LightMode,
+                                    contentDescription = "White Theme",
+                                    tint = if (isWhiteSelected) tokens.accentGold else tokens.textSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "White Glass",
+                                    color = if (isWhiteSelected) tokens.accentGold else tokens.textPrimary,
+                                    fontWeight = if (isWhiteSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "Pearl Ice",
+                                    color = tokens.textSecondary,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        // System Automatic Option
+                        val isSystemSelected = currentGlassTheme == GlassThemeMode.SYSTEM
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSystemSelected) tokens.accentGold.copy(alpha = 0.2f) else tokens.glassCardInner)
+                                .border(
+                                    width = if (isSystemSelected) 2.dp else 1.dp,
+                                    color = if (isSystemSelected) tokens.accentGold else tokens.glassBorder,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable { viewModel.setGlassTheme(GlassThemeMode.SYSTEM) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Brightness4,
+                                    contentDescription = "System Theme",
+                                    tint = if (isSystemSelected) tokens.accentGold else tokens.textSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Auto System",
+                                    color = if (isSystemSelected) tokens.accentGold else tokens.textPrimary,
+                                    fontWeight = if (isSystemSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "OS Dynamic",
+                                    color = tokens.textSecondary,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Section 1: Team & Identity
         item {
-            Text("CLUB BRANDING", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("CLUB BRANDING", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = teamNameInput,
                         onValueChange = { teamNameInput = it },
-                        label = { Text("Club / Team Name") },
+                        label = { Text("Club / Team Name", color = tokens.textSecondary) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = tokens.textPrimary,
+                            unfocusedTextColor = tokens.textPrimary,
+                            focusedBorderColor = tokens.accentGold,
+                            unfocusedBorderColor = tokens.glassBorder
+                        )
                     )
 
                     GoldButton(
@@ -165,11 +342,11 @@ fun SettingsScreen(
 
         // Section 2: Scoreboard Overlay Settings
         item {
-            Text("BROADCAST SCOREBOARD OVERLAY", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("BROADCAST SCOREBOARD OVERLAY", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     ExposedDropdownMenuBox(
                         expanded = styleExpanded,
@@ -179,21 +356,26 @@ fun SettingsScreen(
                             value = currentOverlayStyle.displayName,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Scoreboard Layout") },
+                            label = { Text("Scoreboard Layout", color = tokens.textSecondary) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = styleExpanded) },
                             modifier = Modifier
                                 .menuAnchor()
                                 .fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold,
+                                unfocusedBorderColor = tokens.glassBorder
+                            )
                         )
                         ExposedDropdownMenu(
                             expanded = styleExpanded,
                             onDismissRequest = { styleExpanded = false },
-                            modifier = Modifier.background(CharcoalElevated)
+                            modifier = Modifier.background(tokens.glassCardBackground)
                         ) {
                             OverlayStyle.values().forEach { style ->
                                 DropdownMenuItem(
-                                    text = { Text(style.displayName, color = Color.White) },
+                                    text = { Text(style.displayName, color = tokens.textPrimary) },
                                     onClick = {
                                         scope.launch { viewModel.preferencesRepository.setOverlayStyle(style) }
                                         styleExpanded = false
@@ -204,7 +386,7 @@ fun SettingsScreen(
                     }
 
                     Column {
-                        Text("Overlay Scale: ${String.format("%.1f", overlayScale)}x", color = Color.White, fontSize = 13.sp)
+                        Text("Overlay Scale: ${String.format("%.1f", overlayScale)}x", color = tokens.textPrimary, fontSize = 13.sp)
                         Slider(
                             value = overlayScale,
                             onValueChange = { scale ->
@@ -212,7 +394,7 @@ fun SettingsScreen(
                             },
                             valueRange = 0.8f..1.4f,
                             steps = 5,
-                            colors = SliderDefaults.colors(thumbColor = GoldPrimary, activeTrackColor = GoldBright)
+                            colors = SliderDefaults.colors(thumbColor = tokens.accentGold, activeTrackColor = tokens.accentGold)
                         )
                     }
                 }
@@ -221,11 +403,11 @@ fun SettingsScreen(
 
         // Section 3: Camera & Recording Settings
         item {
-            Text("CAMERA & AUDIO RECORDING", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("CAMERA & AUDIO RECORDING", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -233,15 +415,15 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Mute Audio in Recordings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Record silent cricket match video footage", color = TextSecondary, fontSize = 11.sp)
+                            Text("Mute Audio in Recordings", color = tokens.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Record silent cricket match video footage", color = tokens.textSecondary, fontSize = 11.sp)
                         }
                         Switch(
                             checked = muteAudio,
                             onCheckedChange = { mute ->
                                 scope.launch { viewModel.preferencesRepository.setMuteAudio(mute) }
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = GoldPrimary, checkedTrackColor = GoldDark)
+                            colors = SwitchDefaults.colors(checkedThumbColor = tokens.accentGold, checkedTrackColor = tokens.accentGold.copy(alpha = 0.4f))
                         )
                     }
 
@@ -251,15 +433,15 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Haptic Touch Feedback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Vibrate on runs and wickets", color = TextSecondary, fontSize = 11.sp)
+                            Text("Haptic Touch Feedback", color = tokens.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Vibrate on runs and wickets", color = tokens.textSecondary, fontSize = 11.sp)
                         }
                         Switch(
                             checked = hapticEnabled,
                             onCheckedChange = { haptic ->
                                 scope.launch { viewModel.preferencesRepository.setHapticFeedback(haptic) }
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = GoldPrimary, checkedTrackColor = GoldDark)
+                            colors = SwitchDefaults.colors(checkedThumbColor = tokens.accentGold, checkedTrackColor = tokens.accentGold.copy(alpha = 0.4f))
                         )
                     }
                 }
@@ -268,11 +450,11 @@ fun SettingsScreen(
 
         // Section: Google Cloud Sync (Firebase Firestore)
         item {
-            Text("GOOGLE ACCOUNT & CLOUD SYNC", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("GOOGLE ACCOUNT & CLOUD SYNC", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (currentUser == null) {
                         Row(
@@ -283,19 +465,19 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(CharcoalElevated),
+                                    .background(tokens.glassCardInner),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.AccountCircle,
                                     contentDescription = "Account",
-                                    tint = GoldPrimary,
+                                    tint = tokens.accentGold,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Cloud Backup & Sync", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("Sign in with Google to sync your squad and match statistics to Cloud Firestore", color = TextSecondary, fontSize = 11.sp)
+                                Text("Cloud Backup & Sync", color = tokens.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Sign in with Google to sync your squad and match statistics to Cloud Firestore", color = tokens.textSecondary, fontSize = 11.sp)
                             }
                         }
 
@@ -305,9 +487,9 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = GoldPrimary, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = tokens.accentGold, strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Signing in with Google...", color = TextGold, fontSize = 12.sp)
+                                Text("Signing in with Google...", color = tokens.accentGold, fontSize = 12.sp)
                             }
                         } else {
                             GoldButton(
@@ -319,7 +501,7 @@ fun SettingsScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 leadingIcon = {
-                                    Icon(Icons.Default.Login, contentDescription = null, tint = CharcoalBlack, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Login, contentDescription = null, tint = tokens.buttonContent, modifier = Modifier.size(16.dp))
                                 }
                             )
                         }
@@ -333,26 +515,26 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(CircleShape)
-                                    .background(GoldDark),
+                                    .background(tokens.accentGold.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.AccountCircle,
                                     contentDescription = "User Avatar",
-                                    tint = GoldBright,
+                                    tint = tokens.accentGold,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = currentUser?.displayName ?: "Cricket Captain",
-                                    color = Color.White,
+                                    color = tokens.textPrimary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                                 Text(
                                     text = currentUser?.email ?: "Google Account",
-                                    color = TextSecondary,
+                                    color = tokens.textSecondary,
                                     fontSize = 11.sp
                                 )
                             }
@@ -379,7 +561,7 @@ fun SettingsScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 leadingIcon = {
-                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = GoldBright, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = tokens.accentGold, modifier = Modifier.size(16.dp))
                                 }
                             )
 
@@ -392,7 +574,7 @@ fun SettingsScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 leadingIcon = {
-                                    Icon(Icons.Default.CloudUpload, contentDescription = null, tint = CharcoalBlack, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, tint = tokens.buttonContent, modifier = Modifier.size(16.dp))
                                 }
                             )
                         }
@@ -412,21 +594,21 @@ fun SettingsScreen(
 
         // Section 4: Data Export & Backup (JSON)
         item {
-            Text("LOCAL DATA & BACKUP", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("LOCAL DATA & BACKUP", color = tokens.accentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "100% Offline & Private",
-                        color = Color.White,
+                        color = tokens.textPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
                     Text(
                         text = "All match data, squad rosters and recordings are stored securely on this device in local Room storage.",
-                        color = TextSecondary,
+                        color = tokens.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -439,7 +621,7 @@ fun SettingsScreen(
                             text = "Import JSON",
                             onClick = { showImportDialog = true },
                             modifier = Modifier.weight(1f),
-                            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = GoldBright, modifier = Modifier.size(16.dp)) }
+                            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = tokens.accentGold, modifier = Modifier.size(16.dp)) }
                         )
 
                         GoldButton(
@@ -447,13 +629,12 @@ fun SettingsScreen(
                             onClick = {
                                 scope.launch {
                                     val matches = viewModel.repository.getAllMatches()
-                                    // Get first match to export or empty
                                     jsonExportContent = "{\"app\":\"Rajpoot Cricket Boys\",\"status\":\"ready\"}"
                                     showExportDialog = true
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null, tint = CharcoalBlack, modifier = Modifier.size(16.dp)) }
+                            leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null, tint = tokens.buttonContent, modifier = Modifier.size(16.dp)) }
                         )
                     }
                 }
@@ -462,12 +643,12 @@ fun SettingsScreen(
 
         // App Info
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0x99161620)) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = tokens.glassCardBackground, borderColor = tokens.glassBorder) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Rajpoot Cricket Boys — Glass Edition", color = GoldLight, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Version 1.0.0 (Native Android & CameraX)", color = TextMuted, fontSize = 11.sp)
+                    Text("Rajpoot Cricket Boys — Glass Edition", color = tokens.accentGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Version 1.0.0 (Native Android & iOS Liquid Glass)", color = tokens.textSecondary, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Engineered for real cricket clubs, pitch recording, and broadcast compositing.", color = TextSecondary, fontSize = 11.sp)
+                    Text("Engineered for real cricket clubs, pitch recording, and broadcast compositing.", color = tokens.textSecondary, fontSize = 11.sp)
                 }
             }
         }
@@ -477,10 +658,10 @@ fun SettingsScreen(
     if (showExportDialog) {
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
-            containerColor = CharcoalDark,
-            title = { Text("Backup Data", color = GoldBright, fontWeight = FontWeight.Bold) },
+            containerColor = tokens.glassCardBackground,
+            title = { Text("Backup Data", color = tokens.accentGold, fontWeight = FontWeight.Bold) },
             text = {
-                Text("Match data and scorecards can be safely shared and restored across devices.", color = TextSecondary)
+                Text("Match data and scorecards can be safely shared and restored across devices.", color = tokens.textSecondary)
             },
             confirmButton = {
                 GoldButton(
@@ -496,7 +677,7 @@ fun SettingsScreen(
                 )
             },
             dismissButton = {
-                TextButton(onClick = { showExportDialog = false }) { Text("Close", color = TextSecondary) }
+                TextButton(onClick = { showExportDialog = false }) { Text("Close", color = tokens.textSecondary) }
             }
         )
     }
@@ -505,15 +686,20 @@ fun SettingsScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            containerColor = CharcoalDark,
-            title = { Text("Import Match JSON", color = GoldBright, fontWeight = FontWeight.Bold) },
+            containerColor = tokens.glassCardBackground,
+            title = { Text("Import Match JSON", color = tokens.accentGold, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = jsonImportText,
                     onValueChange = { jsonImportText = it },
-                    label = { Text("Paste Match JSON Here") },
+                    label = { Text("Paste Match JSON Here", color = tokens.textSecondary) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = tokens.textPrimary,
+                        unfocusedTextColor = tokens.textPrimary,
+                        focusedBorderColor = tokens.accentGold,
+                        unfocusedBorderColor = tokens.glassBorder
+                    )
                 )
             },
             confirmButton = {
@@ -534,7 +720,7 @@ fun SettingsScreen(
                 )
             },
             dismissButton = {
-                TextButton(onClick = { showImportDialog = false }) { Text("Cancel", color = TextSecondary) }
+                TextButton(onClick = { showImportDialog = false }) { Text("Cancel", color = tokens.textSecondary) }
             }
         )
     }

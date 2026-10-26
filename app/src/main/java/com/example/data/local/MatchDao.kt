@@ -39,4 +39,10 @@ interface MatchDao {
 
     @Query("SELECT COUNT(*) FROM matches WHERE isCompleted = 1")
     suspend fun getCompletedMatchCount(): Int
+
+    @Query("SELECT DISTINCT season FROM matches WHERE season != '' ORDER BY season DESC")
+    fun getDistinctSeasons(): Flow<List<String>>
+
+    @Query("SELECT DISTINCT tournamentName FROM matches WHERE tournamentName != '' ORDER BY tournamentName ASC")
+    fun getDistinctTournaments(): Flow<List<String>>
 }

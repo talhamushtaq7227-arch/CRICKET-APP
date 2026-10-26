@@ -16,4 +16,11 @@ sealed class Screen(val route: String, val title: String) {
     object VideoExport : Screen("video_export/{matchId}", "Export Video") {
         fun createRoute(matchId: Long) = "video_export/$matchId"
     }
+    object PlayerProfile : Screen("player_profile/{playerId}", "Player Profile") {
+        fun createRoute(playerId: Long) = "player_profile/$playerId"
+    }
+    object PlayerComparison : Screen("player_comparison?player1Id={player1Id}&player2Id={player2Id}", "Player Comparison") {
+        fun createRoute(player1Id: Long = 0L, player2Id: Long = 0L) =
+            "player_comparison?player1Id=$player1Id&player2Id=$player2Id"
+    }
 }

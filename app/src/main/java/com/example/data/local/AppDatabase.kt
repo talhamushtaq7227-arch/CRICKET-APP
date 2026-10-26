@@ -16,9 +16,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import androidx.room.migration.Migration
+
 @Database(
     entities = [PlayerEntity::class, MatchEntity::class, BallDeliveryEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -31,9 +33,17 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE players ADD COLUMN isCaptain INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE players ADD COLUMN isViceCaptain INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE matches ADD COLUMN season TEXT NOT NULL DEFAULT '2026'")
+            }
+        }
+
         val INITIAL_ROSTER = listOf(
-            PlayerEntity(fullName = "Talha", jerseyNumber = 7, role = PlayerRole.ALL_ROUNDER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.RIGHT_ARM_MEDIUM),
-            PlayerEntity(fullName = "Faheem", jerseyNumber = 10, role = PlayerRole.BOWLER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.RIGHT_ARM_FAST),
+            PlayerEntity(fullName = "Talha", jerseyNumber = 7, role = PlayerRole.ALL_ROUNDER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.RIGHT_ARM_MEDIUM, isCaptain = true),
+            PlayerEntity(fullName = "Faheem", jerseyNumber = 10, role = PlayerRole.BOWLER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.RIGHT_ARM_FAST, isViceCaptain = true),
             PlayerEntity(fullName = "Abrar", jerseyNumber = 17, role = PlayerRole.BATTER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.NONE),
             PlayerEntity(fullName = "Mujtaba", jerseyNumber = 23, role = PlayerRole.ALL_ROUNDER, battingHand = BattingHand.LEFT_HAND, bowlingStyle = BowlingStyle.LEFT_ARM_SPIN),
             PlayerEntity(fullName = "Israr", jerseyNumber = 9, role = PlayerRole.BATTER, battingHand = BattingHand.RIGHT_HAND, bowlingStyle = BowlingStyle.NONE),
@@ -58,6 +68,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "rajpoot_cricket_db"
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

@@ -25,11 +25,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -114,6 +118,8 @@ fun LiveScoringScreen(
     val allPlayers by viewModel.allPlayers.collectAsStateWithLifecycle()
     val recordingStatus by viewModel.cameraManager.recordingStatus.collectAsStateWithLifecycle()
     val isFlashAvailable by viewModel.cameraManager.isFlashAvailable.collectAsStateWithLifecycle()
+    val isFrontFacing by viewModel.cameraManager.isFrontFacing.collectAsStateWithLifecycle()
+    val isAudioEnabled by viewModel.cameraManager.isAudioEnabled.collectAsStateWithLifecycle()
 
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
     var hasCameraPermission by remember {
@@ -137,6 +143,14 @@ fun LiveScoringScreen(
         }
     }
 
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(recordingStatus) {
+        if (recordingStatus is RecordingStatus.Error) {
+            errorMessage = (recordingStatus as RecordingStatus.Error).message
+        }
+    }
+
     // Keep screen awake while in live scoring / recording
     DisposableEffect(Unit) {
         val window = (context as? Activity)?.window
@@ -153,7 +167,6 @@ fun LiveScoringScreen(
     var showChangeBowlerDialog by remember { mutableStateOf(false) }
     var showInningsSwitchDialog by remember { mutableStateOf(false) }
     var showEndMatchDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Auto-prompt innings switch if 1st innings complete
     LaunchedEffect(state.isInningsComplete) {
@@ -187,7 +200,15 @@ fun LiveScoringScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures { offset ->
+                                    previewViewRef?.let { pv ->
+                                        viewModel.cameraManager.focusAndMeter(pv, offset.x, offset.y)
+                                    }
+                                }
+                            }
                     )
                 } else {
                     // Permission Explanation & Request Box
@@ -291,8 +312,33 @@ fun LiveScoringScreen(
                     }
 
                     // Camera Controls Row
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (isFlashAvailable) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Audio Toggle
+                        IconButton(
+                            onClick = {
+                                if (!hasAudioPermission) {
+                                    permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+                                } else {
+                                    viewModel.cameraManager.toggleAudio()
+                                }
+                            },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0x99000000))
+                        ) {
+                            Icon(
+                                if (isAudioEnabled && hasAudioPermission) Icons.Default.Mic else Icons.Default.MicOff,
+                                contentDescription = "Toggle Audio Recording",
+                                tint = if (isAudioEnabled && hasAudioPermission) GoldLight else Color.Gray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        if (isFlashAvailable && !isFrontFacing) {
                             IconButton(
                                 onClick = { viewModel.cameraManager.toggleTorch() },
                                 modifier = Modifier
@@ -419,7 +465,7 @@ fun LiveScoringScreen(
                     }
 
                     // Export Video Button if video recorded
-                    if (match?.sourceVideoPath != null) {
+                    if (match?.sourceVideoPath != null || recordingStatus is RecordingStatus.Completed) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))

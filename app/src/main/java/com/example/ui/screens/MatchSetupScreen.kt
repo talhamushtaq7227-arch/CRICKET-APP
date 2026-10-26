@@ -78,6 +78,7 @@ fun MatchSetupScreen(
 
     var matchTitle by remember { mutableStateOf("Rajpoot Cricket Boys vs Challengers") }
     var tournamentName by remember { mutableStateOf("Champions Trophy 2026") }
+    var season by remember { mutableStateOf("2026") }
     var homeTeam by remember { mutableStateOf(defaultTeamName) }
     var awayTeam by remember { mutableStateOf("Lahore Strikers") }
     var venue by remember { mutableStateOf("RCB Cricket Stadium") }
@@ -166,6 +167,14 @@ fun MatchSetupScreen(
                             value = tournamentName,
                             onValueChange = { tournamentName = it },
                             label = { Text("Tournament / Series (Optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                        )
+
+                        OutlinedTextField(
+                            value = season,
+                            onValueChange = { season = it },
+                            label = { Text("Season Year (e.g. 2026)") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                         )
@@ -412,6 +421,7 @@ fun MatchSetupScreen(
                         viewModel.createMatch(
                             title = "$homeTeam vs $awayTeam",
                             tournament = tournamentName,
+                            season = season,
                             homeTeam = homeTeam,
                             awayTeam = awayTeam,
                             venue = venue,

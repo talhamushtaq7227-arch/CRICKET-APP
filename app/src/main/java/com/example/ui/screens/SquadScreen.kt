@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,15 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +35,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,37 +44,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.BattingHand
-import com.example.data.model.BowlingStyle
+import coil.compose.AsyncImage
 import com.example.data.model.PlayerEntity
 import com.example.data.model.PlayerRole
 import com.example.domain.engine.PlayerStats
+import com.example.ui.components.EditPlayerProfileDialog
 import com.example.ui.components.GlassCard
-import com.example.ui.components.GoldButton
-import com.example.ui.theme.AccentWicket
 import com.example.ui.theme.CharcoalBlack
-import com.example.ui.theme.CharcoalCard
 import com.example.ui.theme.CharcoalDark
 import com.example.ui.theme.CharcoalElevated
 import com.example.ui.theme.GoldBright
-import com.example.ui.theme.GoldDark
 import com.example.ui.theme.GoldLight
 import com.example.ui.theme.GoldPrimary
-import com.example.ui.theme.TextGold
 import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.viewmodel.CricketViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+import com.example.ui.components.InteractiveGlassCard
+import com.example.ui.theme.LiquidGlassTheme
+
 @Composable
 fun SquadScreen(
-    viewModel: CricketViewModel
+    viewModel: CricketViewModel,
+    onNavigateToProfile: (Long) -> Unit,
+    onNavigateToComparison: (Long) -> Unit
 ) {
+    val tokens = LiquidGlassTheme.tokens
     val players by viewModel.allPlayers.collectAsStateWithLifecycle()
     val rankings by viewModel.rankings.collectAsStateWithLifecycle()
 
@@ -87,7 +83,6 @@ fun SquadScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPlayer by remember { mutableStateOf<PlayerEntity?>(null) }
-    var viewingPlayerStats by remember { mutableStateOf<Pair<PlayerEntity, PlayerStats?>?>(null) }
 
     val filteredPlayers = players.filter { player ->
         val matchesQuery = player.fullName.contains(searchQuery, ignoreCase = true)
@@ -99,33 +94,67 @@ fun SquadScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = GoldPrimary,
-                contentColor = CharcoalBlack,
+                containerColor = tokens.accentGold,
+                contentColor = tokens.buttonContent,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Player")
             }
         },
-        containerColor = CharcoalBlack
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Header
+            // Header Row with Compare action
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Squad Management",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp
-                )
-                Text(
-                    text = "${players.size} registered players • Real stats computed from scorecards",
-                    color = TextSecondary,
-                    fontSize = 12.sp
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Squad Management",
+                            color = tokens.textPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                        Text(
+                            text = "${players.size} registered players • Tap card for full profile & statistics",
+                            color = tokens.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    // Compare Players button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(tokens.glassCardElevated)
+                            .border(1.dp, tokens.accentGold, RoundedCornerShape(12.dp))
+                            .clickable { onNavigateToComparison(0L) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CompareArrows,
+                                contentDescription = "Compare",
+                                tint = tokens.accentGold,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Compare",
+                                color = tokens.accentGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -134,23 +163,23 @@ fun SquadScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search player by name...", color = TextMuted) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = GoldLight) },
+                    placeholder = { Text("Search player by name...", color = tokens.textSecondary) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.accentGold) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = TextMuted)
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = tokens.textSecondary)
                             }
                         }
                     },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GoldPrimary,
-                        unfocusedBorderColor = Color(0x44D4AF37),
-                        focusedContainerColor = CharcoalDark,
-                        unfocusedContainerColor = CharcoalDark,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = tokens.accentGold,
+                        unfocusedBorderColor = tokens.glassBorder,
+                        focusedContainerColor = tokens.glassCardElevated,
+                        unfocusedContainerColor = tokens.glassCardElevated,
+                        focusedTextColor = tokens.textPrimary,
+                        unfocusedTextColor = tokens.textPrimary
                     ),
                     singleLine = true
                 )
@@ -160,7 +189,7 @@ fun SquadScreen(
                 // Role Filter Chips
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        FilterChip(
+                        SquadFilterChip(
                             label = "All (${players.size})",
                             isSelected = selectedFilterRole == null,
                             onClick = { selectedFilterRole = null }
@@ -168,7 +197,7 @@ fun SquadScreen(
                     }
                     items(PlayerRole.values()) { role ->
                         val count = players.count { it.role == role }
-                        FilterChip(
+                        SquadFilterChip(
                             label = "${role.displayName} ($count)",
                             isSelected = selectedFilterRole == role,
                             onClick = { selectedFilterRole = role }
@@ -188,7 +217,7 @@ fun SquadScreen(
                     PlayerCard(
                         player = player,
                         stats = stats,
-                        onClick = { viewingPlayerStats = Pair(player, stats) },
+                        onClick = { onNavigateToProfile(player.id) },
                         onEdit = { editingPlayer = player },
                         onDelete = { viewModel.deletePlayer(player.id) }
                     )
@@ -197,63 +226,56 @@ fun SquadScreen(
         }
     }
 
-    // Add / Edit Player Dialog
-    if (showAddDialog || editingPlayer != null) {
-        val player = editingPlayer
-        PlayerEditDialog(
-            initialPlayer = player,
-            onDismiss = {
+    // Add Player Dialog (using default or edit dialog)
+    if (showAddDialog) {
+        val newPlayer = remember {
+            PlayerEntity(
+                fullName = "",
+                jerseyNumber = 0,
+                role = PlayerRole.ALL_ROUNDER
+            )
+        }
+        EditPlayerProfileDialog(
+            player = newPlayer,
+            onDismiss = { showAddDialog = false },
+            onSave = { created ->
+                viewModel.insertPlayer(created)
                 showAddDialog = false
-                editingPlayer = null
-            },
-            onSave = { name, jersey, role, hand, style, notes ->
-                if (player == null) {
-                    viewModel.addPlayer(name, jersey, role, hand, style, notes)
-                } else {
-                    viewModel.updatePlayer(
-                        player.copy(
-                            fullName = name,
-                            jerseyNumber = jersey,
-                            role = role,
-                            battingHand = hand,
-                            bowlingStyle = style,
-                            notes = notes
-                        )
-                    )
-                }
-                showAddDialog = false
-                editingPlayer = null
             }
         )
     }
 
-    // Player Profile & Detailed Stats Dialog
-    if (viewingPlayerStats != null) {
-        val (player, stats) = viewingPlayerStats!!
-        PlayerProfileDialog(
-            player = player,
-            stats = stats,
-            onDismiss = { viewingPlayerStats = null }
+    // Edit Player Dialog
+    if (editingPlayer != null) {
+        EditPlayerProfileDialog(
+            player = editingPlayer!!,
+            onDismiss = { editingPlayer = null },
+            onSave = { updated ->
+                viewModel.updatePlayer(updated)
+                editingPlayer = null
+            }
         )
     }
 }
 
 @Composable
-fun FilterChip(
+fun SquadFilterChip(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val tokens = LiquidGlassTheme.tokens
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) GoldPrimary else CharcoalElevated)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isSelected) tokens.accentGold else tokens.glassCardElevated)
+            .border(1.dp, if (isSelected) tokens.accentGold else tokens.glassBorder, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
             text = label,
-            color = if (isSelected) CharcoalBlack else TextSecondary,
+            color = if (isSelected) tokens.buttonContent else tokens.textSecondary,
             fontSize = 12.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
         )
@@ -268,12 +290,11 @@ fun PlayerCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        backgroundColor = Color(0xCC161622),
-        borderColor = Color(0x33D4AF37)
+    val tokens = LiquidGlassTheme.tokens
+    InteractiveGlassCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        borderColor = tokens.glassBorder
     ) {
         Row(
             modifier = Modifier
@@ -281,23 +302,33 @@ fun PlayerCard(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Jersey / Avatar
+            // Jersey / Avatar / Photo
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
-                    .background(Color(0x33D4AF37)),
+                    .background(tokens.glassCardElevated)
+                    .border(1.5.dp, tokens.accentGold, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (player.jerseyNumber > 0) {
+                if (!player.photoUri.isNullOrBlank()) {
+                    AsyncImage(
+                        model = player.photoUri,
+                        contentDescription = player.fullName,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else if (player.jerseyNumber > 0) {
                     Text(
                         text = "#${player.jerseyNumber}",
-                        color = GoldBright,
+                        color = tokens.accentGold,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
                 } else {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = GoldLight)
+                    Icon(Icons.Default.Person, contentDescription = null, tint = tokens.accentGold)
                 }
             }
 
@@ -305,225 +336,71 @@ fun PlayerCard(
 
             // Details
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = player.fullName,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = player.fullName,
+                        color = tokens.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    if (player.isCaptain) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(tokens.accentGold)
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text("C", color = tokens.buttonContent, fontWeight = FontWeight.ExtraBold, fontSize = 9.sp)
+                        }
+                    } else if (player.isViceCaptain) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(tokens.glassCardElevated)
+                                .border(0.5.dp, tokens.accentGold, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text("VC", color = tokens.accentGold, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                        }
+                    }
+                }
+
                 Text(
                     text = "${player.role.displayName} • ${player.battingHand.displayName}",
-                    color = TextSecondary,
+                    color = tokens.textSecondary,
                     fontSize = 12.sp
                 )
 
                 // Quick stats summary
                 if (stats != null && (stats.runs > 0 || stats.wickets > 0)) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = "${stats.runs} runs (HS: ${stats.highestScore}) | ${stats.wickets} wkts",
-                        color = GoldLight,
+                        color = tokens.accentGold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 } else {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "No match data yet",
-                        color = TextMuted,
+                        text = "Tap to view profile & history",
+                        color = tokens.textMuted,
                         fontSize = 11.sp
                     )
                 }
             }
 
             // Edit & Delete actions
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = tokens.textSecondary, modifier = Modifier.size(18.dp))
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0x88FF5252), modifier = Modifier.size(18.dp))
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PlayerEditDialog(
-    initialPlayer: PlayerEntity?,
-    onDismiss: () -> Unit,
-    onSave: (String, Int, PlayerRole, BattingHand, BowlingStyle, String?) -> Unit
-) {
-    var name by remember { mutableStateOf(initialPlayer?.fullName ?: "") }
-    var jerseyText by remember { mutableStateOf(initialPlayer?.jerseyNumber?.takeIf { it > 0 }?.toString() ?: "") }
-    var role by remember { mutableStateOf(initialPlayer?.role ?: PlayerRole.ALL_ROUNDER) }
-    var hand by remember { mutableStateOf(initialPlayer?.battingHand ?: BattingHand.RIGHT_HAND) }
-    var style by remember { mutableStateOf(initialPlayer?.bowlingStyle ?: BowlingStyle.RIGHT_ARM_MEDIUM) }
-    var notes by remember { mutableStateOf(initialPlayer?.notes ?: "") }
-
-    var roleExpanded by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CharcoalDark,
-        title = {
-            Text(
-                text = if (initialPlayer == null) "Add Squad Player" else "Edit Player",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                )
-
-                OutlinedTextField(
-                    value = jerseyText,
-                    onValueChange = { jerseyText = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Jersey Number") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                )
-
-                // Role Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = roleExpanded,
-                    onExpandedChange = { roleExpanded = !roleExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = role.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Primary Role") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = roleExpanded,
-                        onDismissRequest = { roleExpanded = false },
-                        modifier = Modifier.background(CharcoalElevated)
-                    ) {
-                        PlayerRole.values().forEach { r ->
-                            DropdownMenuItem(
-                                text = { Text(r.displayName, color = Color.White) },
-                                onClick = {
-                                    role = r
-                                    roleExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes (Optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                )
-            }
-        },
-        confirmButton = {
-            GoldButton(
-                text = "Save",
-                onClick = {
-                    if (name.isNotBlank()) {
-                        val jersey = jerseyText.toIntOrNull() ?: 0
-                        onSave(name.trim(), jersey, role, hand, style, notes)
-                    }
-                },
-                enabled = name.isNotBlank()
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextSecondary)
-            }
-        }
-    )
-}
-
-@Composable
-fun PlayerProfileDialog(
-    player: PlayerEntity,
-    stats: PlayerStats?,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CharcoalDark,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(GoldPrimary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("#${player.jerseyNumber}", color = CharcoalBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(player.fullName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(player.role.displayName, color = GoldLight, fontSize = 12.sp)
-                }
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("BATTING CAREER", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    StatMetricItem("Innings", "${stats?.inningsBatted ?: 0}")
-                    StatMetricItem("Runs", "${stats?.runs ?: 0}")
-                    StatMetricItem("HS", "${stats?.highestScore ?: 0}")
-                    StatMetricItem("Avg", stats?.formattedBattingAverage ?: "—")
-                    StatMetricItem("SR", stats?.formattedStrikeRate ?: "—")
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    StatMetricItem("Fours", "${stats?.fours ?: 0}")
-                    StatMetricItem("Sixes", "${stats?.sixes ?: 0}")
-                    StatMetricItem("50s", "${stats?.fifties ?: 0}")
-                    StatMetricItem("100s", "${stats?.hundreds ?: 0}")
-                    StatMetricItem("Not Out", "${stats?.notOuts ?: 0}")
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("BOWLING CAREER", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    StatMetricItem("Overs", stats?.formattedOversBowled ?: "0.0")
-                    StatMetricItem("Wickets", "${stats?.wickets ?: 0}")
-                    StatMetricItem("Econ", stats?.formattedBowlingEconomy ?: "—")
-                    StatMetricItem("Best", stats?.bestBowlingFigures ?: "—")
-                    StatMetricItem("Runs", "${stats?.runsConceded ?: 0}")
-                }
-            }
-        },
-        confirmButton = {
-            GoldButton(text = "Close", onClick = onDismiss)
-        }
-    )
-}
-
-@Composable
-fun StatMetricItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        Text(text = label, color = TextMuted, fontSize = 10.sp)
     }
 }
