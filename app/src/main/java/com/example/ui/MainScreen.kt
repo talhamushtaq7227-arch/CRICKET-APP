@@ -42,7 +42,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +64,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.ui.components.CricketAnimationType
+import com.example.ui.components.CricketCelebrationOverlay
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.navigation.Screen
 import com.example.ui.screens.HomeScreen
@@ -90,10 +94,17 @@ fun MainScreen(viewModel: CricketViewModel = viewModel()) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val tokens = LiquidGlassTheme.tokens
+    var activeCricketAnimation by remember { mutableStateOf<CricketAnimationType?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.userMessage.collectLatest { msg ->
             snackbarHostState.showSnackbar(msg)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.cricketAnimationEvent.collectLatest { event ->
+            activeCricketAnimation = event
         }
     }
 
@@ -364,6 +375,10 @@ fun MainScreen(viewModel: CricketViewModel = viewModel()) {
                         )
                     }
                 }
+                CricketCelebrationOverlay(
+                    event = activeCricketAnimation,
+                    onDismiss = { activeCricketAnimation = null }
+                )
             }
         }
     }

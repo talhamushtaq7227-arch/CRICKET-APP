@@ -74,6 +74,7 @@ import com.example.camera.RecordingStatus
 import com.example.data.model.ExtrasType
 import com.example.data.model.PlayerEntity
 import com.example.data.model.WicketType
+import com.example.ui.components.CricketBallSeamSpinner
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GoldButton
 import com.example.ui.components.OutlinedGoldButton
@@ -510,6 +511,33 @@ fun LiveScoringScreen(
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Active Bowler & Delivery indicator with animated CricketBallSeamSpinner
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CricketBallSeamSpinner(sizeDp = 18.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Bowler: ${state.currentBowler?.bowlerName ?: "Select Bowler"}",
+                            color = GoldBright,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Text(
+                        text = "Ball ${state.ballsInCurrentOver}/6 (Ov ${state.legalBalls / 6}.${state.ballsInCurrentOver})",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 // Row 1: Primary Runs (0, 1, 2, 3)
                 Row(
                     modifier = Modifier.fillMaxWidth(),

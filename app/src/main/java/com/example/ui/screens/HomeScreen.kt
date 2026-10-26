@@ -44,6 +44,10 @@ import com.example.ui.components.LiquidGlassThemeToggle
 import com.example.ui.components.OutlinedGoldButton
 import com.example.ui.theme.AccentExtra
 import com.example.ui.theme.AccentFour
+import com.example.ui.components.CricketAnimationType
+import com.example.ui.components.CricketBallSeamSpinner
+import com.example.ui.theme.AccentSix
+import com.example.ui.theme.AccentWicket
 import com.example.ui.theme.CharcoalBlack
 import com.example.ui.theme.LiquidGlassTheme
 import com.example.viewmodel.CricketViewModel
@@ -94,20 +98,7 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Brush.linearGradient(listOf(tokens.accentGoldBright, tokens.accentGoldDark))),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SportsCricket,
-                                        contentDescription = "Emblem",
-                                        tint = if (tokens.isDark) CharcoalBlack else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                                CricketBallSeamSpinner(sizeDp = 34.dp)
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
                                     text = if (tokens.isDark) "DARK LIQUID GLASS" else "WHITE LIQUID GLASS",
@@ -157,6 +148,47 @@ fun HomeScreen(
                             text = "Squad (${players.size})",
                             onClick = onNavigateToSquad,
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Cricket Interactive Animation FX Bar
+                    Text(
+                        text = "CRICKET FX & CELEBRATIONS",
+                        color = tokens.textMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CricketFxPill(
+                            label = "FOUR 4",
+                            color = AccentFour,
+                            onClick = { viewModel.triggerCricketAnimation(CricketAnimationType.Four) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        CricketFxPill(
+                            label = "SIX 6",
+                            color = AccentSix,
+                            onClick = { viewModel.triggerCricketAnimation(CricketAnimationType.Six) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        CricketFxPill(
+                            label = "WICKET!",
+                            color = AccentWicket,
+                            onClick = { viewModel.triggerCricketAnimation(CricketAnimationType.Wicket("BOWLED! STUMPS SHATTERED")) },
+                            modifier = Modifier.weight(1.1f)
+                        )
+                        CricketFxPill(
+                            label = "50 RUNS",
+                            color = tokens.accentGold,
+                            onClick = { viewModel.triggerCricketAnimation(CricketAnimationType.Milestone("50! HALF CENTURY")) },
+                            modifier = Modifier.weight(1.1f)
                         )
                     }
                 }
@@ -468,3 +500,29 @@ fun MatchCardItem(
         }
     }
 }
+
+@Composable
+private fun CricketFxPill(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(color.copy(alpha = 0.18f))
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 11.sp
+        )
+    }
+}
+

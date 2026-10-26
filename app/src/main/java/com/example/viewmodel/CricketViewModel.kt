@@ -117,6 +117,14 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     private val _userMessage = MutableSharedFlow<String>()
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
+    // Cricket-specific animation events (Boundaries 4/6, Wicket, Milestone)
+    private val _cricketAnimationEvent = MutableSharedFlow<com.example.ui.components.CricketAnimationType>(extraBufferCapacity = 2)
+    val cricketAnimationEvent: SharedFlow<com.example.ui.components.CricketAnimationType> = _cricketAnimationEvent.asSharedFlow()
+
+    fun triggerCricketAnimation(event: com.example.ui.components.CricketAnimationType) {
+        _cricketAnimationEvent.tryEmit(event)
+    }
+
     init {
         // Observe deliveries for current match
         viewModelScope.launch {
@@ -259,6 +267,16 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
             // Update match timestamp
             repository.updateMatch(match.copy(updatedAt = System.currentTimeMillis()))
+
+            // Trigger visual cricket celebration animations
+            if (runsOffBat == 4) {
+                triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Four)
+            } else if (runsOffBat == 6) {
+                triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Six)
+            } else if (isWicket) {
+                val desc = if (!dismissedPlayerName.isNullOrBlank()) "$dismissedPlayerName OUT!" else "WICKET!"
+                triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Wicket(desc))
+            }
         }
     }
 

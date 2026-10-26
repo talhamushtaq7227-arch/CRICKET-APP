@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +52,8 @@ import com.example.ui.theme.GoldLight
 import com.example.ui.theme.GoldPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSecondary
+import com.example.ui.components.CricketBallSeamSpinner
+import com.example.ui.theme.LiquidGlassTheme
 import com.example.viewmodel.CricketViewModel
 
 @Composable
@@ -60,6 +63,7 @@ fun MatchesListScreen(
     onNavigateToLiveScoring: (Long) -> Unit,
     onNavigateToScorecard: (Long) -> Unit
 ) {
+    val tokens = LiquidGlassTheme.tokens
     val matches by viewModel.allMatches.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(0) } // 0: All, 1: Live, 2: Completed
 
@@ -73,14 +77,14 @@ fun MatchesListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToMatchSetup,
-                containerColor = GoldPrimary,
-                contentColor = CharcoalBlack,
+                containerColor = tokens.accentGold,
+                contentColor = tokens.buttonContent,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "New Match")
             }
         },
-        containerColor = CharcoalBlack
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -88,27 +92,32 @@ fun MatchesListScreen(
                 .padding(innerPadding)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Match Archive",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CricketBallSeamSpinner(sizeDp = 28.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Match Archive",
+                        color = tokens.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${matches.size} saved matches with scorecards & recordings",
-                    color = TextSecondary,
+                    color = tokens.textSecondary,
                     fontSize = 12.sp
                 )
             }
 
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = CharcoalDark,
-                contentColor = GoldPrimary,
+                containerColor = tokens.glassCardElevated,
+                contentColor = tokens.accentGold,
                 indicator = { tabPositions ->
                     TabRowDefaults.Indicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = GoldPrimary,
+                        color = tokens.accentGold,
                         height = 3.dp
                     )
                 }
@@ -116,14 +125,24 @@ fun MatchesListScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("All (${matches.size})", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
+                    text = {
+                        Text(
+                            "All (${matches.size})",
+                            color = if (selectedTab == 0) tokens.accentGold else tokens.textSecondary,
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     text = {
                         val count = matches.count { !it.isCompleted }
-                        Text("In Progress ($count)", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
+                        Text(
+                            "In Progress ($count)",
+                            color = if (selectedTab == 1) tokens.accentGold else tokens.textSecondary,
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
                 )
                 Tab(
@@ -131,7 +150,11 @@ fun MatchesListScreen(
                     onClick = { selectedTab = 2 },
                     text = {
                         val count = matches.count { it.isCompleted }
-                        Text("Completed ($count)", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal)
+                        Text(
+                            "Completed ($count)",
+                            color = if (selectedTab == 2) tokens.accentGold else tokens.textSecondary,
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
                 )
             }
@@ -144,11 +167,11 @@ fun MatchesListScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.SportsCricket, contentDescription = null, tint = GoldLight, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No Matches Found", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Start a match with the wizard to begin live scoring.", color = TextSecondary, fontSize = 12.sp)
+                        CricketBallSeamSpinner(sizeDp = 56.dp)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("No Matches Found", color = tokens.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text("Start a match with the wizard to begin live scoring.", color = tokens.textSecondary, fontSize = 12.sp)
                     }
                 }
             } else {
