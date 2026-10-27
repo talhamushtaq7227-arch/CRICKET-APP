@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -65,52 +66,69 @@ sealed class CricketAnimationType {
 }
 
 /**
- * Authentic 3D-styled Cricket Leather Ball with rotating white hand-stitched seam.
+ * 3D-styled Cricket Ball with white stitched seam and cyan stadium rim reflection.
+ * Defaults to a one-shot entrance rotation so it does NOT drain CPU/GPU on idle screens.
  */
 @Composable
 fun CricketBallSeamSpinner(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 38.dp,
-    isSpinning: Boolean = true
+    isSpinning: Boolean = false
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "cricket_ball_spin")
-    val angle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ball_spin_angle"
-    )
-
-    val currentAngle = if (isSpinning) angle else 25f
+    val currentAngle = if (isSpinning) {
+        val infiniteTransition = rememberInfiniteTransition(label = "cricket_ball_spin")
+        val angle by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1600, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "ball_spin_angle"
+        )
+        angle
+    } else {
+        val entranceAngle = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            entranceAngle.animateTo(
+                targetValue = 385f,
+                animationSpec = tween(900, easing = FastOutSlowInEasing)
+            )
+        }
+        entranceAngle.value
+    }
 
     Canvas(
-        modifier = modifier
-            .size(sizeDp)
+        modifier = modifier.size(sizeDp)
     ) {
         val radius = size.minDimension / 2f
         val center = Offset(size.width / 2f, size.height / 2f)
 
-        // 1. Red Leather Ball Body with spherical shadow
+        // Outer cyan stadium rim glow
+        drawCircle(
+            color = Color(0x3300E5FF),
+            center = center,
+            radius = radius * 1.08f
+        )
+
+        // 1. Leather Ball Body with 3D spherical shading
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFE53935), // Shiny red highlight
-                    Color(0xFFB71C1C), // Deep crimson leather
-                    Color(0xFF5D0000)  // Deep shadow at bottom
+                    Color(0xFFFF5252),
+                    Color(0xFFC62828),
+                    Color(0xFF4A0000)
                 ),
-                center = Offset(center.x - radius * 0.25f, center.y - radius * 0.25f),
+                center = Offset(center.x - radius * 0.28f, center.y - radius * 0.28f),
                 radius = radius * 1.3f
             ),
             center = center,
             radius = radius
         )
 
-        // 2. Leather Seam Ridge (Rotating)
+        // 2. Leather Seam Ridge
         val rad = (currentAngle * PI / 180f).toFloat()
-        val seamWidthFactor = cos(rad) // Oscillates between -1 and 1 to simulate 3D rotation
+        val seamWidthFactor = cos(rad)
 
         val seamPath = Path().apply {
             val seamYOffset = sin(rad) * radius * 0.2f
@@ -122,38 +140,33 @@ fun CricketBallSeamSpinner(
             )
         }
 
-        // Seam background track
         drawPath(
             path = seamPath,
             color = Color(0xFF2B0000),
             style = Stroke(width = radius * 0.16f, cap = StrokeCap.Round)
         )
 
-        // White hand-stitched threads
         drawPath(
             path = seamPath,
-            color = Color(0xFFFFF9E6),
-            style = Stroke(
-                width = radius * 0.08f,
-                cap = StrokeCap.Round
-            )
+            color = Color(0xFFE0F7FA),
+            style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round)
         )
 
-        // Specular glossy highlight reflection (makes it look like lacquer polished leather)
+        // 3. Specular glossy highlight
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0x80FFFFFF), Color.Transparent),
-                center = Offset(center.x - radius * 0.4f, center.y - radius * 0.4f),
+                colors = listOf(Color(0x90FFFFFF), Color.Transparent),
+                center = Offset(center.x - radius * 0.38f, center.y - radius * 0.38f),
                 radius = radius * 0.45f
             ),
-            center = Offset(center.x - radius * 0.4f, center.y - radius * 0.4f),
+            center = Offset(center.x - radius * 0.38f, center.y - radius * 0.38f),
             radius = radius * 0.45f
         )
     }
 }
 
 /**
- * Animated Cricket Stumps and Bails that fly apart upon a Wicket!
+ * Animated LED Cricket Stumps and Bails that fly apart upon a Wicket!
  */
 @Composable
 fun FlyingWicketsAnimation(
@@ -178,8 +191,7 @@ fun FlyingWicketsAnimation(
     val t = progress.value
 
     Canvas(
-        modifier = modifier
-            .size(160.dp, 120.dp)
+        modifier = modifier.size(160.dp, 120.dp)
     ) {
         val baseY = size.height * 0.85f
         val stumpHeight = size.height * 0.6f
@@ -187,48 +199,36 @@ fun FlyingWicketsAnimation(
         val spacing = 22.dp.toPx()
         val centerX = size.width / 2f
 
-        // Stumps wood gradient
         val woodBrush = Brush.verticalGradient(
-            colors = listOf(Color(0xFFE0A96D), Color(0xFF8D5B28))
+            colors = listOf(Color(0xFF84FFFF), Color(0xFF00E5FF), Color(0xFF00838F))
         )
 
-        // Off Stump (shudders slightly)
         val offStumpX = centerX - spacing - (t * 8.dp.toPx())
-        val offTilt = -t * 12f
-        drawStump(offStumpX, baseY, stumpWidth, stumpHeight, woodBrush, offTilt)
+        drawStump(offStumpX, baseY, stumpWidth, stumpHeight, woodBrush)
 
-        // Middle Stump (shatters back and rotates)
         val midStumpX = centerX + (t * 6.dp.toPx())
-        val midTilt = t * 25f
-        drawStump(midStumpX, baseY + (t * 12.dp.toPx()), stumpWidth, stumpHeight, woodBrush, midTilt)
+        drawStump(midStumpX, baseY + (t * 12.dp.toPx()), stumpWidth, stumpHeight, woodBrush)
 
-        // Leg Stump (stays or bends)
         val legStumpX = centerX + spacing + (t * 4.dp.toPx())
-        val legTilt = t * 8f
-        drawStump(legStumpX, baseY, stumpWidth, stumpHeight, woodBrush, legTilt)
+        drawStump(legStumpX, baseY, stumpWidth, stumpHeight, woodBrush)
 
-        // Flying Bail 1 (Flies to top-left)
         val bail1X = centerX - spacing * 0.5f - (t * 60.dp.toPx())
         val bail1Y = (baseY - stumpHeight) - (sin(t * PI) * 50.dp.toPx()).toFloat()
-        val bail1Rot = -t * 360f
-        drawBail(bail1X, bail1Y, 18.dp.toPx(), 4.dp.toPx(), bail1Rot)
+        drawBail(bail1X, bail1Y, 18.dp.toPx(), 4.dp.toPx())
 
-        // Flying Bail 2 (Flies to top-right)
         val bail2X = centerX + spacing * 0.5f + (t * 65.dp.toPx())
         val bail2Y = (baseY - stumpHeight) - (sin(t * PI * 0.9f) * 60.dp.toPx()).toFloat()
-        val bail2Rot = t * 420f
-        drawBail(bail2X, bail2Y, 18.dp.toPx(), 4.dp.toPx(), bail2Rot)
+        drawBail(bail2X, bail2Y, 18.dp.toPx(), 4.dp.toPx())
 
-        // Impact ground dust / shockwave
         if (t > 0.05f) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0x66FF5252), Color.Transparent),
+                    colors = listOf(Color(0x66FF3B5C), Color(0x4400E5FF), Color.Transparent),
                     center = Offset(centerX, baseY),
-                    radius = t * 60.dp.toPx()
+                    radius = t * 65.dp.toPx()
                 ),
                 center = Offset(centerX, baseY),
-                radius = t * 60.dp.toPx()
+                radius = t * 65.dp.toPx()
             )
         }
     }
@@ -239,15 +239,14 @@ private fun DrawScope.drawStump(
     baseY: Float,
     width: Float,
     height: Float,
-    brush: Brush,
-    rotationDeg: Float
+    brush: Brush
 ) {
     val topY = baseY - height
     drawRoundRect(
         brush = brush,
         topLeft = Offset(x - width / 2f, topY),
         size = Size(width, height),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(width / 3f, width / 3f)
+        cornerRadius = CornerRadius(width / 3f, width / 3f)
     )
 }
 
@@ -255,14 +254,13 @@ private fun DrawScope.drawBail(
     x: Float,
     y: Float,
     length: Float,
-    height: Float,
-    rotationDeg: Float
+    height: Float
 ) {
     drawRoundRect(
-        color = Color(0xFFFFD54F),
+        color = Color(0xFFFF3B5C),
         topLeft = Offset(x - length / 2f, y - height / 2f),
         size = Size(length, height),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(height / 2f, height / 2f)
+        cornerRadius = CornerRadius(height / 2f, height / 2f)
     )
 }
 
@@ -280,9 +278,9 @@ fun BoundaryTrajectoryAnimation(
     LaunchedEffect(Unit) {
         progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(1200, easing = FastOutSlowInEasing)
+            animationSpec = tween(1000, easing = FastOutSlowInEasing)
         )
-        delay(600)
+        delay(500)
         onFinished()
     }
 
@@ -296,11 +294,9 @@ fun BoundaryTrajectoryAnimation(
         val end = if (isSix) Offset(w * 0.88f, h * 0.18f) else Offset(w * 0.9f, h * 0.65f)
         val control = if (isSix) Offset(w * 0.45f, h * 0.05f) else Offset(w * 0.5f, h * 0.72f)
 
-        // Calculate current ball position on quadratic bezier curve
         val bx = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * control.x + t * t * end.x
         val by = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * control.y + t * t * end.y
 
-        // Glowing comet trail
         val trailPath = Path().apply {
             moveTo(start.x, start.y)
             for (step in 1..20) {
@@ -311,7 +307,7 @@ fun BoundaryTrajectoryAnimation(
             }
         }
 
-        val trailColor = if (isSix) Color(0xFFC084FC) else Color(0xFF34D399)
+        val trailColor = if (isSix) Color(0xFF00E5FF) else Color(0xFF00E676)
         drawPath(
             path = trailPath,
             brush = Brush.linearGradient(
@@ -322,10 +318,9 @@ fun BoundaryTrajectoryAnimation(
             style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
         )
 
-        // Draw ball at current head position
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color.White, Color(0xFFE53935), Color(0xFF8E0000)),
+                colors = listOf(Color.White, Color(0xFF00E5FF), Color(0xFF006064)),
                 center = Offset(bx, by),
                 radius = 12.dp.toPx()
             ),
@@ -333,7 +328,6 @@ fun BoundaryTrajectoryAnimation(
             radius = 10.dp.toPx()
         )
 
-        // Impact spark on reaching boundary
         if (t > 0.85f) {
             val sparkProgress = (t - 0.85f) / 0.15f
             drawCircle(
@@ -351,7 +345,6 @@ fun BoundaryTrajectoryAnimation(
 
 /**
  * Liquid Glass Cricket Celebration Modal / Overlay.
- * Appears dynamically when boundaries, wickets, or milestones are triggered.
  */
 @Composable
 fun CricketCelebrationOverlay(
@@ -363,35 +356,31 @@ fun CricketCelebrationOverlay(
     val tokens = LiquidGlassTheme.tokens
 
     LaunchedEffect(event) {
-        delay(2600)
+        delay(2200)
         onDismiss()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x66000000))
+            .background(Color(0x77020814))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center
     ) {
-        // Trajectory for Boundaries
         when (event) {
-            is CricketAnimationType.Four -> {
-                BoundaryTrajectoryAnimation(isSix = false)
-            }
-            is CricketAnimationType.Six -> {
-                BoundaryTrajectoryAnimation(isSix = true)
-            }
+            is CricketAnimationType.Four -> BoundaryTrajectoryAnimation(isSix = false)
+            is CricketAnimationType.Six -> BoundaryTrajectoryAnimation(isSix = true)
             else -> {}
         }
 
-        // Center celebration glass banner
         GlassCard(
             modifier = Modifier
                 .padding(32.dp)
-                .fillMaxWidth(),
-            backgroundColor = tokens.glassCardBackground,
-            borderColor = tokens.accentGold
+                .fillMaxWidth()
+                .liquid3DEntrance(),
+            backgroundColor = tokens.glassCardElevated,
+            borderColor = tokens.accentGold,
+            borderWidth = 2.dp
         ) {
             Column(
                 modifier = Modifier
@@ -403,7 +392,7 @@ fun CricketCelebrationOverlay(
                 when (event) {
                     is CricketAnimationType.Four -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CricketBallSeamSpinner(sizeDp = 42.dp)
+                            CricketBallSeamSpinner(sizeDp = 42.dp, isSpinning = true)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "FOUR! 4",
@@ -425,7 +414,7 @@ fun CricketCelebrationOverlay(
 
                     is CricketAnimationType.Six -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CricketBallSeamSpinner(sizeDp = 46.dp)
+                            CricketBallSeamSpinner(sizeDp = 46.dp, isSpinning = true)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "MAXIMUM! 6",
@@ -465,7 +454,7 @@ fun CricketCelebrationOverlay(
                     }
 
                     is CricketAnimationType.Milestone -> {
-                        CricketBallSeamSpinner(sizeDp = 48.dp)
+                        CricketBallSeamSpinner(sizeDp = 48.dp, isSpinning = true)
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = event.title,

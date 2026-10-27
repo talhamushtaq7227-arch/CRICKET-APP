@@ -16,7 +16,11 @@ object CricketRulesEngine {
         initialBowlerName: String? = null,
         initialStrikerId: Long? = null,
         initialNonStrikerId: Long? = null,
-        initialBowlerId: Long? = null
+        initialBowlerId: Long? = null,
+        bowlerSelectedForNextOver: Boolean = false,
+        activeStrikerOverride: String? = null,
+        activeNonStrikerOverride: String? = null,
+        activeBowlerOverride: String? = null
     ): InningsLiveState {
         val battingTeam = if (inningsNumber == 1) {
             match.battingFirstTeam.ifEmpty { match.homeTeamName }
@@ -37,23 +41,22 @@ object CricketRulesEngine {
         var penalties = 0
 
         // Mutable tracking maps
-        val battersMap = mutableMapOf<String, BatterInningsStats>()
-        val bowlersMap = mutableMapOf<String, BowlerInningsStats>()
+        val battersMap = linkedMapOf<String, BatterInningsStats>()
+        val bowlersMap = linkedMapOf<String, BowlerInningsStats>()
         val fallOfWickets = mutableListOf<FallOfWicket>()
 
-        var currentStrikerName = initialStrikerName ?: ""
-        var currentNonStrikerName = initialNonStrikerName ?: ""
-        var currentBowlerName = initialBowlerName ?: ""
+        var currentStrikerName = initialStrikerName?.trim() ?: ""
+        var currentNonStrikerName = initialNonStrikerName?.trim() ?: ""
+        var currentBowlerName = initialBowlerName?.trim() ?: ""
 
         var currentStrikerId = initialStrikerId
         var currentNonStrikerId = initialNonStrikerId
         var currentBowlerId = initialBowlerId
 
-        // Ensure initial players exist in maps if provided
         if (currentStrikerName.isNotEmpty()) {
             battersMap[currentStrikerName] = BatterInningsStats(playerName = currentStrikerName, playerId = currentStrikerId)
         }
-        if (currentNonStrikerName.isNotEmpty()) {
+        if (currentNonStrikerName.isNotEmpty() && currentNonStrikerName != currentStrikerName) {
             battersMap[currentNonStrikerName] = BatterInningsStats(playerName = currentNonStrikerName, playerId = currentNonStrikerId)
         }
         if (currentBowlerName.isNotEmpty()) {
@@ -71,18 +74,25 @@ object CricketRulesEngine {
 
         var legalBallsInCurrentOver = 0
         var isCurrentOverFinished = false
+        var lastDeliveryBowlerName = ""
 
         for (ball in sortedDeliveries) {
-            val striker = ball.strikerName.ifEmpty { currentStrikerName }
-            val nonStriker = ball.nonStrikerName.ifEmpty { currentNonStrikerName }
-            val bowler = ball.bowlerName.ifEmpty { currentBowlerName }
+            val striker = ball.strikerName.trim().ifEmpty { currentStrikerName }
+            val nonStriker = ball.nonStrikerName.trim().ifEmpty { currentNonStrikerName }
+            val bowler = ball.bowlerName.trim().ifEmpty { currentBowlerName }
 
             currentStrikerName = striker
             currentNonStrikerName = nonStriker
             currentBowlerName = bowler
+            lastDeliveryBowlerName = bowler
             currentStrikerId = ball.strikerPlayerId ?: currentStrikerId
             currentNonStrikerId = ball.nonStrikerPlayerId ?: currentNonStrikerId
             currentBowlerId = ball.bowlerPlayerId ?: currentBowlerId
+
+            // Ensure non-striker is in battersMap even if they haven't faced a ball yet
+            if (nonStriker.isNotEmpty() && !battersMap.containsKey(nonStriker)) {
+                battersMap[nonStriker] = BatterInningsStats(playerName = nonStriker, playerId = ball.nonStrikerPlayerId)
+            }
 
             val runsOffBat = ball.runsOffBat
             val totalBallRuns = ball.totalBallRuns
@@ -99,7 +109,6 @@ object CricketRulesEngine {
                 ExtrasType.NONE -> {}
             }
 
-            // Legal delivery advances legal ball count
             val isLegal = ball.isLegalDelivery
             if (isLegal) {
                 legalBalls++
@@ -113,7 +122,6 @@ object CricketRulesEngine {
                 playerId = ball.strikerPlayerId
             )
 
-            // Striker faces ball on legal deliveries and no-balls (not wides)
             val strikerFaced = if (ball.extrasType != ExtrasType.WIDE) 1 else 0
             val isFour = if (runsOffBat == 4) 1 else 0
             val isSix = if (runsOffBat == 6) 1 else 0
@@ -137,7 +145,6 @@ object CricketRulesEngine {
                 bowlerId = ball.bowlerPlayerId
             )
 
-            // Bowler concedes runs off bat + wides + no balls + penalty (NOT byes or leg byes)
             val bowlerRunsConceded = runsOffBat + when (ball.extrasType) {
                 ExtrasType.WIDE, ExtrasType.NO_BALL, ExtrasType.PENALTY -> ball.extrasRuns
                 ExtrasType.BYE, ExtrasType.LEG_BYE, ExtrasType.NONE -> 0
@@ -159,7 +166,7 @@ object CricketRulesEngine {
             // Wicket handling
             if (ball.isWicket) {
                 totalWickets++
-                val dismissedName = ball.dismissedPlayerName?.ifEmpty { striker } ?: striker
+                val dismissedName = ball.dismissedPlayerName?.trim()?.ifEmpty { striker } ?: striker
                 val dismissedId = ball.dismissedPlayerId ?: (if (dismissedName == striker) ball.strikerPlayerId else ball.nonStrikerPlayerId)
 
                 val dismissedStats = battersMap[dismissedName] ?: BatterInningsStats(playerName = dismissedName, playerId = dismissedId)
@@ -183,6 +190,15 @@ object CricketRulesEngine {
                     )
                 )
 
+                // Clear the dismissed batter slot so an incoming batter override can fill it cleanly
+                if (dismissedName.equals(currentStrikerName, ignoreCase = true)) {
+                    currentStrikerName = ""
+                    currentStrikerId = null
+                } else if (dismissedName.equals(currentNonStrikerName, ignoreCase = true)) {
+                    currentNonStrikerName = ""
+                    currentNonStrikerId = null
+                }
+
                 // Reset partnership on wicket
                 partRuns = 0
                 partBalls = 0
@@ -191,32 +207,25 @@ object CricketRulesEngine {
             }
 
             // Strike rotation logic:
-            // 1. Physical runs taken:
-            // For legal/no-ball: runsOffBat + bye/leg-bye runs
-            // For wide: only if physical runs ran in addition to 1 wide penalty
             val physicalRuns = when (ball.extrasType) {
                 ExtrasType.BYE, ExtrasType.LEG_BYE -> ball.extrasRuns
                 ExtrasType.WIDE -> maxOf(0, ball.extrasRuns - 1)
                 else -> runsOffBat
             }
 
-            var endsRotatedForRuns = false
             if (physicalRuns % 2 != 0) {
-                // Odd runs swap ends
                 val tempName = currentStrikerName
                 val tempId = currentStrikerId
                 currentStrikerName = currentNonStrikerName
                 currentStrikerId = currentNonStrikerId
                 currentNonStrikerName = tempName
                 currentNonStrikerId = tempId
-                endsRotatedForRuns = true
             }
 
-            // 2. Check Over completion (6 legal balls)
+            // Check Over completion (6 legal balls)
             if (legalBallsInCurrentOver >= 6) {
                 isCurrentOverFinished = true
                 legalBallsInCurrentOver = 0
-                // End of over: ends swap!
                 val tempName = currentStrikerName
                 val tempId = currentStrikerId
                 currentStrikerName = currentNonStrikerName
@@ -225,6 +234,44 @@ object CricketRulesEngine {
                 currentNonStrikerId = tempId
             } else {
                 isCurrentOverFinished = false
+            }
+        }
+
+        // Apply active batter overrides (e.g., incoming batter after wicket, manual batsman change, or new over bowler)
+        val overrideStriker = activeStrikerOverride?.trim().orEmpty().ifEmpty {
+            if (currentStrikerName.isEmpty()) initialStrikerName?.trim().orEmpty() else ""
+        }
+        val overrideNonStriker = activeNonStrikerOverride?.trim().orEmpty().ifEmpty {
+            if (currentNonStrikerName.isEmpty()) initialNonStrikerName?.trim().orEmpty() else ""
+        }
+        val overrideBowler = activeBowlerOverride?.trim().orEmpty().ifEmpty {
+            if (currentBowlerName.isEmpty() || bowlerSelectedForNextOver) initialBowlerName?.trim().orEmpty() else ""
+        }
+
+        if (overrideStriker.isNotEmpty() && battersMap[overrideStriker]?.isOut != true) {
+            currentStrikerName = overrideStriker
+            currentStrikerId = initialStrikerId ?: battersMap[overrideStriker]?.playerId
+            if (!battersMap.containsKey(overrideStriker)) {
+                battersMap[overrideStriker] = BatterInningsStats(playerName = overrideStriker, playerId = currentStrikerId)
+            }
+        }
+
+        if (overrideNonStriker.isNotEmpty() &&
+            !overrideNonStriker.equals(currentStrikerName, ignoreCase = true) &&
+            battersMap[overrideNonStriker]?.isOut != true
+        ) {
+            currentNonStrikerName = overrideNonStriker
+            currentNonStrikerId = initialNonStrikerId ?: battersMap[overrideNonStriker]?.playerId
+            if (!battersMap.containsKey(overrideNonStriker)) {
+                battersMap[overrideNonStriker] = BatterInningsStats(playerName = overrideNonStriker, playerId = currentNonStrikerId)
+            }
+        }
+
+        if (overrideBowler.isNotEmpty()) {
+            currentBowlerName = overrideBowler
+            currentBowlerId = initialBowlerId ?: bowlersMap[overrideBowler]?.bowlerId
+            if (!bowlersMap.containsKey(overrideBowler)) {
+                bowlersMap[overrideBowler] = BowlerInningsStats(bowlerName = overrideBowler, bowlerId = currentBowlerId)
             }
         }
 
@@ -241,14 +288,12 @@ object CricketRulesEngine {
         var isMatchComplete = false
         var resultSummary: String? = null
 
-        // Check Innings 1 Completion
         if (inningsNumber == 1) {
             if (totalWickets >= maxWickets || legalBalls >= totalBallsConfigured) {
                 isInningsComplete = true
                 resultSummary = "$battingTeam completed 1st innings: $totalRuns/$totalWickets (${legalBalls / 6}.${legalBalls % 6} ov). Target: ${totalRuns + 1}."
             }
         } else {
-            // Innings 2 (Chasing)
             if (target != null && totalRuns >= target) {
                 isInningsComplete = true
                 isMatchComplete = true
@@ -261,8 +306,7 @@ object CricketRulesEngine {
                 resultSummary = if (runsShort == 0) {
                     "Match Tied!"
                 } else if (runsShort > 0) {
-                    val defendingTeam = bowlingTeam
-                    "$defendingTeam won by $runsShort run${if (runsShort != 1) "s" else ""}!"
+                    "$bowlingTeam won by $runsShort run${if (runsShort != 1) "s" else ""}!"
                 } else {
                     "$battingTeam won!"
                 }
@@ -270,7 +314,11 @@ object CricketRulesEngine {
         }
 
         val recentBalls = sortedDeliveries.takeLast(12)
-        val currentOverBalls = sortedDeliveries.filter { it.overNumber == (legalBalls / 6) || (isCurrentOverFinished && it.overNumber == ((legalBalls - 1).coerceAtLeast(0) / 6)) }
+        val currentOverBalls = if (isCurrentOverFinished && !bowlerSelectedForNextOver) {
+            sortedDeliveries.filter { it.overNumber == ((legalBalls - 1).coerceAtLeast(0) / 6) }
+        } else {
+            sortedDeliveries.filter { it.overNumber == (legalBalls / 6) }
+        }
 
         val activeStriker = battersMap[currentStrikerName] ?: if (currentStrikerName.isNotEmpty()) {
             BatterInningsStats(playerName = currentStrikerName, playerId = currentStrikerId)
@@ -280,9 +328,17 @@ object CricketRulesEngine {
             BatterInningsStats(playerName = currentNonStrikerName, playerId = currentNonStrikerId)
         } else null
 
-        val activeBowler = finalBowlersList.find { it.bowlerName == currentBowlerName } ?: if (currentBowlerName.isNotEmpty()) {
-            BowlerInningsStats(bowlerName = currentBowlerName, bowlerId = currentBowlerId)
-        } else null
+        val activeBowler = finalBowlersList.find { it.bowlerName.equals(currentBowlerName, ignoreCase = true) }
+            ?: if (currentBowlerName.isNotEmpty()) {
+                BowlerInningsStats(bowlerName = currentBowlerName, bowlerId = currentBowlerId)
+            } else null
+
+        // Over is only awaiting a new bowler selection if 6 legal balls just finished AND a new bowler hasn't been picked yet
+        val needsNewBowlerForOver = isCurrentOverFinished &&
+            legalBalls > 0 &&
+            (legalBalls % 6 == 0) &&
+            !bowlerSelectedForNextOver &&
+            (currentBowlerName.isEmpty() || currentBowlerName.equals(lastDeliveryBowlerName, ignoreCase = true))
 
         return InningsLiveState(
             inningsNumber = inningsNumber,
@@ -317,7 +373,7 @@ object CricketRulesEngine {
                 penalties = penalties
             ),
             target = target,
-            isOverComplete = isCurrentOverFinished && legalBalls > 0 && (legalBalls % 6 == 0),
+            isOverComplete = needsNewBowlerForOver,
             isInningsComplete = isInningsComplete,
             isMatchComplete = isMatchComplete,
             resultSummary = resultSummary

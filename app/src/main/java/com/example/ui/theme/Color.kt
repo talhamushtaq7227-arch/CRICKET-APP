@@ -3,47 +3,55 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Deep Obsidian / Charcoal Backgrounds
-val CharcoalBlack = Color(0xFF08080A)
-val CharcoalDark = Color(0xFF101014)
-val CharcoalCard = Color(0xFF16161D)
-val CharcoalElevated = Color(0xFF1E1E28)
-val CharcoalBorder = Color(0xFF2A2A38)
+// Deep Midnight Navy / Stadium Night Backgrounds
+val CharcoalBlack = Color(0xFF040A18)
+val CharcoalDark = Color(0xFF071226)
+val CharcoalCard = Color(0xFF0B1B36)
+val CharcoalElevated = Color(0xFF102447)
+val CharcoalBorder = Color(0xFF1C3B6E)
 
-// Metallic Gold Accents
-val GoldPrimary = Color(0xFFD4AF37)
-val GoldBright = Color(0xFFFFDF73)
-val GoldDark = Color(0xFFA67C1E)
-val GoldLight = Color(0xFFFFF1C2)
-val GoldMuted = Color(0xFF8A7338)
+// Glowing Cyan & Aqua Highlights (Mapped to existing token names for full compatibility)
+val GoldPrimary = Color(0xFF00E5FF)
+val GoldBright = Color(0xFF40C4FF)
+val GoldDark = Color(0xFF00B8D4)
+val GoldLight = Color(0xFF84FFFF)
+val GoldMuted = Color(0xFF00838F)
 
-// Accent Colors
-val AccentWicket = Color(0xFFE53935)
-val AccentFour = Color(0xFF10B981)
-val AccentSix = Color(0xFF8B5CF6)
-val AccentExtra = Color(0xFFF59E0B)
+// Explicit Cyan / Navy tokens
+val CyanPrimary = Color(0xFF00E5FF)
+val CyanBright = Color(0xFF84FFFF)
+val CyanGlow = Color(0xFF00B8D4)
+val NavyDeep = Color(0xFF040A18)
+val NavySurface = Color(0xFF0A1931)
+val NavyElevated = Color(0xFF11264A)
 
-// Frosted Glass Tokens
-val GlassBackground = Color(0xCC13131A)
-val GlassSurface = Color(0x99181822)
-val GlassBorder = Color(0x40D4AF37)
-val GlassBorderSubtle = Color(0x20FFFFFF)
+// Cricket Event Accent Colors
+val AccentWicket = Color(0xFFFF3B5C)
+val AccentFour = Color(0xFF00E676)
+val AccentSix = Color(0xFF00E5FF)
+val AccentExtra = Color(0xFFFFB300)
 
-// Text
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFB0B0C0)
-val TextMuted = Color(0xFF6C6C7D)
-val TextGold = Color(0xFFFFE082)
+// Frosted Liquid Glass Tokens
+val GlassBackground = Color(0xD90A1931)
+val GlassSurface = Color(0xB30E2242)
+val GlassBorder = Color(0x5500E5FF)
+val GlassBorderSubtle = Color(0x2884FFFF)
+
+// Text Hierarchy
+val TextPrimary = Color(0xFFF4FAFF)
+val TextSecondary = Color(0xFF9AB8D9)
+val TextMuted = Color(0xFF5D7FA3)
+val TextGold = Color(0xFF00E5FF)
 
 // Gradients
 val GoldGradient = Brush.linearGradient(
-    colors = listOf(GoldBright, GoldPrimary, GoldDark)
+    colors = listOf(GoldLight, GoldPrimary, GoldDark)
 )
 
 val DarkGlassGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xE61A1A24), Color(0xFA0E0E14))
+    colors = listOf(Color(0xEB0E2244), Color(0xFA050D1E))
 )
 
 val ScorecardGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xF00A0A0E), Color(0xDE14141C), Color(0xF00A0A0E))
+    colors = listOf(Color(0xF2050E21), Color(0xE00C2147), Color(0xF2050E21))
 )

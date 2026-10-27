@@ -1,5 +1,6 @@
 package com.example.domain.engine
 
+import androidx.compose.runtime.Immutable
 import com.example.data.model.BallDeliveryEntity
 import com.example.data.model.ExtrasType
 import com.example.data.model.MatchEntity
@@ -10,6 +11,7 @@ import java.util.Locale
 /**
  * Individual performance of a player in a single match.
  */
+@Immutable
 data class PlayerMatchPerformance(
     val matchId: Long,
     val matchTitle: String,
@@ -55,6 +57,7 @@ data class PlayerMatchPerformance(
 /**
  * Comprehensive professional cricket statistics for a player.
  */
+@Immutable
 data class PlayerDetailedStatistics(
     val player: PlayerEntity,
     val seasonFilter: String? = null,
@@ -138,6 +141,7 @@ data class PlayerDetailedStatistics(
 /**
  * Squad ranking item with value and rank.
  */
+@Immutable
 data class SquadRankingItem(
     val rank: Int,
     val player: PlayerEntity,

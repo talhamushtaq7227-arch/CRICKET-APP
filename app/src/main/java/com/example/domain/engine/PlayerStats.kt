@@ -1,7 +1,9 @@
 package com.example.domain.engine
 
+import androidx.compose.runtime.Immutable
 import java.util.Locale
 
+@Immutable
 data class PlayerStats(
     val playerId: Long? = null,
     val playerName: String,

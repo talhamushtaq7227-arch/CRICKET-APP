@@ -4,8 +4,15 @@ import android.content.Context
 import android.util.Log
 import com.example.R
 import com.example.data.model.BallDeliveryEntity
+import com.example.data.model.BattingHand
+import com.example.data.model.BowlingStyle
+import com.example.data.model.ExtrasType
 import com.example.data.model.MatchEntity
+import com.example.data.model.MatchFormat
 import com.example.data.model.PlayerEntity
+import com.example.data.model.PlayerRole
+import com.example.data.model.TossDecision
+import com.example.data.model.WicketType
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FieldValue
@@ -16,9 +23,16 @@ import kotlinx.coroutines.withContext
 
 class CloudCricketRepository(context: Context) {
 
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(
-        context.applicationContext.getString(R.string.firestore_database_id)
-    )
+    private val db: FirebaseFirestore = try {
+        val dbId = context.applicationContext.getString(R.string.firestore_database_id).trim()
+        if (dbId.isNotEmpty() && dbId != "(default)") {
+            FirebaseFirestore.getInstance(dbId)
+        } else {
+            FirebaseFirestore.getInstance()
+        }
+    } catch (e: Exception) {
+        FirebaseFirestore.getInstance()
+    }
 
     private fun requireUserId(): String {
         return Firebase.auth.currentUser?.uid
@@ -34,18 +48,16 @@ class CloudCricketRepository(context: Context) {
             val uid = requireUserId()
             var count = 0
 
-            // 1. Back up user profile
             val userRef = db.collection("users").document(uid)
             userRef.set(
                 mapOf(
                     "userId" to uid,
-                    "displayName" to (Firebase.auth.currentUser?.displayName ?: "Cricket Fan"),
+                    "displayName" to (Firebase.auth.currentUser?.displayName ?: "Cricket Captain"),
                     "email" to (Firebase.auth.currentUser?.email ?: ""),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
 
-            // 2. Back up squad players
             val squadCollection = userRef.collection("squad_players")
             for (player in players) {
                 val playerDoc = squadCollection.document("player_${player.id}")
@@ -65,7 +77,6 @@ class CloudCricketRepository(context: Context) {
                 count++
             }
 
-            // 3. Back up matches and ball deliveries
             val matchesCollection = userRef.collection("matches")
             for (match in matches) {
                 val matchDoc = matchesCollection.document("match_${match.id}")
@@ -94,7 +105,6 @@ class CloudCricketRepository(context: Context) {
                 matchDoc.set(matchPayload).await()
                 count++
 
-                // Back up deliveries for this match
                 val deliveries = fetchDeliveriesForMatch(match.id)
                 val deliveriesCollection = matchDoc.collection("deliveries")
                 for (delivery in deliveries) {
@@ -127,14 +137,50 @@ class CloudCricketRepository(context: Context) {
         }
     }
 
-    suspend fun restoreDataFromCloud(): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun restoreDataFromCloud(
+        localRepository: CricketRepository? = null,
+        existingPlayerNames: Set<String> = emptySet()
+    ): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val uid = requireUserId()
             val userRef = db.collection("users").document(uid)
             val squadSnapshot = userRef.collection("squad_players").get().await()
             val matchesSnapshot = userRef.collection("matches").get().await()
 
-            Log.d("CloudCricketRepository", "Restored ${squadSnapshot.size()} players and ${matchesSnapshot.size()} matches from cloud")
+            var restoredCount = 0
+            val seenNames = existingPlayerNames.map { it.lowercase() }.toMutableSet()
+
+            if (localRepository != null) {
+                for (doc in squadSnapshot.documents) {
+                    val fullName = doc.getString("fullName")?.trim().orEmpty()
+                    if (fullName.isNotEmpty() && !seenNames.contains(fullName.lowercase())) {
+                        val jersey = (doc.getLong("jerseyNumber") ?: 0L).toInt()
+                        val roleStr = doc.getString("role") ?: PlayerRole.ALL_ROUNDER.name
+                        val batStr = doc.getString("battingHand") ?: BattingHand.RIGHT_HAND.name
+                        val bowlStr = doc.getString("bowlingStyle") ?: BowlingStyle.RIGHT_ARM_MEDIUM.name
+                        val notes = doc.getString("notes")
+                        val isActive = doc.getBoolean("isActive") ?: true
+
+                        val player = PlayerEntity(
+                            fullName = fullName,
+                            jerseyNumber = jersey,
+                            role = runCatching { PlayerRole.valueOf(roleStr) }.getOrDefault(PlayerRole.ALL_ROUNDER),
+                            battingHand = runCatching { BattingHand.valueOf(batStr) }.getOrDefault(BattingHand.RIGHT_HAND),
+                            bowlingStyle = runCatching { BowlingStyle.valueOf(bowlStr) }.getOrDefault(BowlingStyle.RIGHT_ARM_MEDIUM),
+                            notes = notes,
+                            isActive = isActive
+                        )
+                        localRepository.insertPlayer(player)
+                        seenNames.add(fullName.lowercase())
+                        restoredCount++
+                    }
+                }
+            }
+
+            Log.d(
+                "CloudCricketRepository",
+                "Cloud sync verified ${squadSnapshot.size()} players (${restoredCount} newly imported) and ${matchesSnapshot.size()} matches"
+            )
             squadSnapshot.size() + matchesSnapshot.size()
         }
     }

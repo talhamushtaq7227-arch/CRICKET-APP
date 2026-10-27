@@ -12,6 +12,8 @@ import com.example.domain.engine.PlayerStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,22 +24,22 @@ class CricketRepository(
     private val ballDeliveryDao: BallDeliveryDao
 ) {
     // Players
-    fun getAllPlayers(): Flow<List<PlayerEntity>> = playerDao.getAllPlayers()
-    fun getActivePlayers(): Flow<List<PlayerEntity>> = playerDao.getActivePlayers()
+    fun getAllPlayers(): Flow<List<PlayerEntity>> = playerDao.getAllPlayers().distinctUntilChanged()
+    fun getActivePlayers(): Flow<List<PlayerEntity>> = playerDao.getActivePlayers().distinctUntilChanged()
     suspend fun getPlayerById(id: Long): PlayerEntity? = playerDao.getPlayerById(id)
-    fun observePlayerById(id: Long): Flow<PlayerEntity?> = playerDao.observePlayerById(id)
+    fun observePlayerById(id: Long): Flow<PlayerEntity?> = playerDao.observePlayerById(id).distinctUntilChanged()
     suspend fun insertPlayer(player: PlayerEntity): Long = playerDao.insertPlayer(player)
     suspend fun updatePlayer(player: PlayerEntity) = playerDao.updatePlayer(player)
     suspend fun setPlayerActive(id: Long, isActive: Boolean) = playerDao.setPlayerActive(id, isActive)
     suspend fun deletePlayer(id: Long) = playerDao.deletePlayer(id)
 
     // Matches
-    fun getAllMatches(): Flow<List<MatchEntity>> = matchDao.getAllMatches()
-    fun getCompletedMatches(): Flow<List<MatchEntity>> = matchDao.getCompletedMatches()
-    fun getLatestUnfinishedMatch(): Flow<MatchEntity?> = matchDao.getLatestUnfinishedMatch()
-    fun observeMatchById(id: Long): Flow<MatchEntity?> = matchDao.observeMatchById(id)
-    fun getDistinctSeasons(): Flow<List<String>> = matchDao.getDistinctSeasons()
-    fun getDistinctTournaments(): Flow<List<String>> = matchDao.getDistinctTournaments()
+    fun getAllMatches(): Flow<List<MatchEntity>> = matchDao.getAllMatches().distinctUntilChanged()
+    fun getCompletedMatches(): Flow<List<MatchEntity>> = matchDao.getCompletedMatches().distinctUntilChanged()
+    fun getLatestUnfinishedMatch(): Flow<MatchEntity?> = matchDao.getLatestUnfinishedMatch().distinctUntilChanged()
+    fun observeMatchById(id: Long): Flow<MatchEntity?> = matchDao.observeMatchById(id).distinctUntilChanged()
+    fun getDistinctSeasons(): Flow<List<String>> = matchDao.getDistinctSeasons().distinctUntilChanged()
+    fun getDistinctTournaments(): Flow<List<String>> = matchDao.getDistinctTournaments().distinctUntilChanged()
     suspend fun getMatchById(id: Long): MatchEntity? = matchDao.getMatchById(id)
     suspend fun insertMatch(match: MatchEntity): Long = matchDao.insertMatch(match)
     suspend fun updateMatch(match: MatchEntity) = matchDao.updateMatch(match)
@@ -47,9 +49,9 @@ class CricketRepository(
     }
 
     // Deliveries
-    fun getAllDeliveries(): Flow<List<BallDeliveryEntity>> = ballDeliveryDao.getAllDeliveries()
+    fun getAllDeliveries(): Flow<List<BallDeliveryEntity>> = ballDeliveryDao.getAllDeliveries().distinctUntilChanged()
     fun getDeliveriesForMatch(matchId: Long): Flow<List<BallDeliveryEntity>> =
-        ballDeliveryDao.getDeliveriesForMatch(matchId)
+        ballDeliveryDao.getDeliveriesForMatch(matchId).distinctUntilChanged()
 
     suspend fun getDeliveriesForMatchSnapshot(matchId: Long): List<BallDeliveryEntity> =
         ballDeliveryDao.getDeliveriesForMatchSnapshot(matchId)
@@ -63,31 +65,26 @@ class CricketRepository(
     // Player Rankings & Stats Calculation from real saved match data
     fun getPlayerRankingsFlow(): Flow<List<PlayerStats>> {
         return combine(
-            playerDao.getAllPlayers(),
-            matchDao.getAllMatches(),
-            ballDeliveryDao.getAllDeliveries()
-        ) { players, matches, deliveries ->
-            computePlayerStats(players, matches, deliveries)
-        }
+            getAllPlayers(),
+            getAllDeliveries()
+        ) { players, deliveries ->
+            computePlayerStats(players, deliveries)
+        }.distinctUntilChanged().flowOn(Dispatchers.Default)
     }
 
     suspend fun getPlayerStatsSnapshot(): List<PlayerStats> = withContext(Dispatchers.Default) {
-        val players = playerDao.getAllPlayers()
-        val matches = matchDao.getAllMatches()
         val deliveries = ballDeliveryDao.getAllDeliveriesSnapshot()
-        // Compute from snapshot
-        computePlayerStats(emptyList(), emptyList(), deliveries)
+        computePlayerStats(emptyList(), deliveries)
     }
 
     private fun computePlayerStats(
         players: List<PlayerEntity>,
-        matches: List<MatchEntity>,
         deliveries: List<BallDeliveryEntity>
     ): List<PlayerStats> {
-        val playerStatsMap = mutableMapOf<String, PlayerStats>()
+        val playerStatsMap = LinkedHashMap<String, PlayerStats>(players.size + 16)
 
         // Initialize from players roster if available
-        players.forEach { p ->
+        for (p in players) {
             playerStatsMap[p.fullName] = PlayerStats(
                 playerId = p.id,
                 playerName = p.fullName
@@ -98,18 +95,31 @@ class CricketRepository(
         val matchGroups = deliveries.groupBy { it.matchId }
 
         for ((_, matchDeliveries) in matchGroups) {
+            // Pre-compute dismissed batters in O(N) once per match instead of O(N*B)
+            val dismissedBattersInMatch = HashSet<String>(12)
+            for (d in matchDeliveries) {
+                if (d.isWicket && !d.dismissedPlayerName.isNullOrBlank()) {
+                    dismissedBattersInMatch.add(d.dismissedPlayerName)
+                }
+            }
+
             // Batting innings in this match
             val batterDeliveries = matchDeliveries.groupBy { it.strikerName }
             for ((batterName, bBalls) in batterDeliveries) {
                 if (batterName.isBlank()) continue
                 val existing = playerStatsMap[batterName] ?: PlayerStats(playerName = batterName)
-                val inningsRuns = bBalls.sumOf { it.runsOffBat }
-                val ballsFaced = bBalls.count { it.extrasType != ExtrasType.WIDE }
-                val fours = bBalls.count { it.runsOffBat == 4 }
-                val sixes = bBalls.count { it.runsOffBat == 6 }
+                var inningsRuns = 0
+                var ballsFaced = 0
+                var fours = 0
+                var sixes = 0
+                for (b in bBalls) {
+                    val r = b.runsOffBat
+                    inningsRuns += r
+                    if (b.extrasType != ExtrasType.WIDE) ballsFaced++
+                    if (r == 4) fours++ else if (r == 6) sixes++
+                }
 
-                // Check if batter was dismissed in this match
-                val wasDismissed = matchDeliveries.any { it.isWicket && it.dismissedPlayerName == batterName }
+                val wasDismissed = dismissedBattersInMatch.contains(batterName)
                 val newNotOuts = existing.notOuts + (if (!wasDismissed) 1 else 0)
 
                 playerStatsMap[batterName] = existing.copy(
@@ -131,14 +141,17 @@ class CricketRepository(
             for ((bowlerName, bBalls) in bowlerDeliveries) {
                 if (bowlerName.isBlank()) continue
                 val existing = playerStatsMap[bowlerName] ?: PlayerStats(playerName = bowlerName)
-                val legalBalls = bBalls.count { it.isLegalDelivery }
-                val runsConceded = bBalls.sumOf { b ->
-                    b.runsOffBat + when (b.extrasType) {
+                var legalBalls = 0
+                var runsConceded = 0
+                var matchWickets = 0
+                for (b in bBalls) {
+                    if (b.isLegalDelivery) legalBalls++
+                    runsConceded += b.runsOffBat + when (b.extrasType) {
                         ExtrasType.WIDE, ExtrasType.NO_BALL, ExtrasType.PENALTY -> b.extrasRuns
                         else -> 0
                     }
+                    if (b.isWicket && b.wicketType.isBowlerWicket) matchWickets++
                 }
-                val matchWickets = bBalls.count { it.isWicket && it.wicketType.isBowlerWicket }
 
                 // Check best bowling figures
                 val isBetterBowling = matchWickets > existing.bestBowlingWickets ||

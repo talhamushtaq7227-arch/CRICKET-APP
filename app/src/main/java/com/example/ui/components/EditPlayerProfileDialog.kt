@@ -215,7 +215,7 @@ fun EditPlayerProfileDialog(
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GoldPrimary,
-                        unfocusedBorderColor = Color(0x44D4AF37),
+                        unfocusedBorderColor = Color(0xFF173F70),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     )
@@ -231,7 +231,7 @@ fun EditPlayerProfileDialog(
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GoldPrimary,
-                        unfocusedBorderColor = Color(0x44D4AF37),
+                        unfocusedBorderColor = Color(0xFF173F70),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     )
@@ -254,7 +254,7 @@ fun EditPlayerProfileDialog(
                         shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color(0x44D4AF37),
+                            unfocusedBorderColor = Color(0xFF173F70),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         )
@@ -293,7 +293,7 @@ fun EditPlayerProfileDialog(
                         shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color(0x44D4AF37),
+                            unfocusedBorderColor = Color(0xFF173F70),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         )
@@ -332,7 +332,7 @@ fun EditPlayerProfileDialog(
                         shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GoldPrimary,
-                            unfocusedBorderColor = Color(0x44D4AF37),
+                            unfocusedBorderColor = Color(0xFF173F70),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         )
@@ -417,7 +417,7 @@ fun EditPlayerProfileDialog(
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GoldPrimary,
-                        unfocusedBorderColor = Color(0x44D4AF37),
+                        unfocusedBorderColor = Color(0xFF173F70),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     )

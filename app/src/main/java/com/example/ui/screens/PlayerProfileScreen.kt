@@ -46,8 +46,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -135,15 +138,26 @@ fun PlayerProfileScreen(
         return
     }
 
-    // Compute live authoritative stats from saved matches
-    val stats = remember(player, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter) {
-        PlayerStatisticsCalculator.calculatePlayerStatistics(
-            player = player,
-            matches = matches,
-            deliveries = deliveries,
-            seasonFilter = selectedSeasonFilter,
-            tournamentFilter = selectedTournamentFilter
-        )
+    // Compute live authoritative stats from saved matches on background thread
+    val stats by produceState(
+        initialValue = remember(player) {
+            PlayerStatisticsCalculator.calculatePlayerStatistics(
+                player = player,
+                matches = emptyList(),
+                deliveries = emptyList()
+            )
+        },
+        player, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter
+    ) {
+        value = withContext(Dispatchers.Default) {
+            PlayerStatisticsCalculator.calculatePlayerStatistics(
+                player = player,
+                matches = matches,
+                deliveries = deliveries,
+                seasonFilter = selectedSeasonFilter,
+                tournamentFilter = selectedTournamentFilter
+            )
+        }
     }
 
     val tabs = listOf("Overview", "Batting", "Bowling", "History (${stats.matchPerformances.size})")

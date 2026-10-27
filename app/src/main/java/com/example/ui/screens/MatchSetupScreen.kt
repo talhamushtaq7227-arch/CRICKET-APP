@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,15 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -35,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,21 +47,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.MatchFormat
-import com.example.data.model.PlayerEntity
 import com.example.data.model.TossDecision
 import com.example.ui.components.GlassCard
 import com.example.ui.components.GoldButton
+import com.example.ui.components.liquid3DEntrance
+import com.example.ui.theme.AccentWicket
 import com.example.ui.theme.CharcoalBlack
-import com.example.ui.theme.CharcoalCard
-import com.example.ui.theme.CharcoalDark
 import com.example.ui.theme.CharcoalElevated
 import com.example.ui.theme.GoldBright
-import com.example.ui.theme.GoldDark
 import com.example.ui.theme.GoldLight
 import com.example.ui.theme.GoldPrimary
-import com.example.ui.theme.TextGold
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.LiquidGlassTheme
 import com.example.ui.theme.TextSecondary
 import com.example.viewmodel.CricketViewModel
 
@@ -73,25 +68,47 @@ fun MatchSetupScreen(
     onBack: () -> Unit,
     onMatchCreated: (Long) -> Unit
 ) {
+    val tokens = LiquidGlassTheme.tokens
     val defaultTeamName by viewModel.teamNameSetting.collectAsStateWithLifecycle()
     val allPlayers by viewModel.allPlayers.collectAsStateWithLifecycle()
 
-    var matchTitle by remember { mutableStateOf("Rajpoot Cricket Boys vs Challengers") }
     var tournamentName by remember { mutableStateOf("Champions Trophy 2026") }
     var season by remember { mutableStateOf("2026") }
-    var homeTeam by remember { mutableStateOf(defaultTeamName) }
+    var homeTeam by remember(defaultTeamName) { mutableStateOf(defaultTeamName) }
     var awayTeam by remember { mutableStateOf("Lahore Strikers") }
     var venue by remember { mutableStateOf("RCB Cricket Stadium") }
     var format by remember { mutableStateOf(MatchFormat.T20) }
     var totalOversText by remember { mutableStateOf("20") }
     var playersPerSideText by remember { mutableStateOf("11") }
 
-    var tossWinner by remember { mutableStateOf(homeTeam) }
+    var tossWinner by remember(homeTeam) { mutableStateOf(homeTeam) }
     var tossDecision by remember { mutableStateOf(TossDecision.BAT) }
 
-    // Squad selection for Home team
+    var openingStriker by remember { mutableStateOf("") }
+    var openingNonStriker by remember { mutableStateOf("") }
+    var openingBowler by remember { mutableStateOf("") }
+    var setupError by remember { mutableStateOf<String?>(null) }
+
     val selectedPlayerIds = remember {
-        mutableStateOf(allPlayers.take(11).map { it.id }.toSet())
+        mutableStateOf(emptySet<Long>())
+    }
+
+    // Automatically pre-select up to 11 players and default openers once allPlayers loads
+    LaunchedEffect(allPlayers) {
+        if (allPlayers.isNotEmpty()) {
+            if (selectedPlayerIds.value.isEmpty()) {
+                selectedPlayerIds.value = allPlayers.take(11).map { it.id }.toSet()
+            }
+            if (openingStriker.isEmpty()) {
+                openingStriker = allPlayers.getOrNull(0)?.fullName.orEmpty()
+            }
+            if (openingNonStriker.isEmpty()) {
+                openingNonStriker = allPlayers.getOrNull(1)?.fullName.orEmpty()
+            }
+            if (openingBowler.isEmpty()) {
+                openingBowler = allPlayers.lastOrNull()?.fullName.orEmpty()
+            }
+        }
     }
 
     var formatExpanded by remember { mutableStateOf(false) }
@@ -105,36 +122,42 @@ fun MatchSetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Match Setup Wizard", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Match Setup & Lineup", color = tokens.textPrimary, fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = GoldLight)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = tokens.accentGold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CharcoalBlack)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
-        containerColor = CharcoalBlack
+        containerColor = Color.Transparent
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
                 Text(
-                    text = "TEAMS & VENUE",
-                    color = GoldBright,
+                    text = "TEAMS & STADIUM VENUE",
+                    color = tokens.accentGold,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
             }
 
             item {
-                GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .liquid3DEntrance(),
+                    backgroundColor = tokens.glassCardBackground,
+                    borderColor = tokens.glassCardBorder
+                ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(
                             value = homeTeam,
@@ -143,59 +166,167 @@ fun MatchSetupScreen(
                                 if (tossWinner.isEmpty()) tossWinner = it
                             },
                             label = { Text("Home Team") },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
                         )
 
                         OutlinedTextField(
                             value = awayTeam,
                             onValueChange = { awayTeam = it },
                             label = { Text("Opponent Team") },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
                         )
 
                         OutlinedTextField(
                             value = venue,
                             onValueChange = { venue = it },
-                            label = { Text("Match Venue") },
+                            label = { Text("Stadium / Venue") },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
                         )
 
-                        OutlinedTextField(
-                            value = tournamentName,
-                            onValueChange = { tournamentName = it },
-                            label = { Text("Tournament / Series (Optional)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = tournamentName,
+                                onValueChange = { tournamentName = it },
+                                label = { Text("Tournament / Series") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1.4f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary,
+                                    focusedBorderColor = tokens.accentGold
+                                )
+                            )
 
-                        OutlinedTextField(
-                            value = season,
-                            onValueChange = { season = it },
-                            label = { Text("Season Year (e.g. 2026)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                        )
+                            OutlinedTextField(
+                                value = season,
+                                onValueChange = { season = it },
+                                label = { Text("Season") },
+                                singleLine = true,
+                                modifier = Modifier.weight(0.6f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary,
+                                    focusedBorderColor = tokens.accentGold
+                                )
+                            )
+                        }
                     }
                 }
             }
 
             item {
                 Text(
-                    text = "MATCH FORMAT & OVERS",
-                    color = GoldBright,
+                    text = "OPENING BATSMEN & BOWLER",
+                    color = tokens.accentGold,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
             }
 
             item {
-                GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = tokens.glassCardBackground,
+                    borderColor = tokens.glassCardBorder
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Set initial Striker, Non-Striker & Opening Bowler (you can also change them anytime during the match):",
+                            color = tokens.textSecondary,
+                            fontSize = 12.sp
+                        )
+
+                        OutlinedTextField(
+                            value = openingStriker,
+                            onValueChange = {
+                                openingStriker = it
+                                setupError = null
+                            },
+                            label = { Text("Opening Striker *") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = openingNonStriker,
+                            onValueChange = {
+                                openingNonStriker = it
+                                setupError = null
+                            },
+                            label = { Text("Opening Non-Striker") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = openingBowler,
+                            onValueChange = {
+                                openingBowler = it
+                                setupError = null
+                            },
+                            label = { Text("Opening Bowler") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = tokens.textPrimary,
+                                unfocusedTextColor = tokens.textPrimary,
+                                focusedBorderColor = tokens.accentGold
+                            )
+                        )
+
+                        if (setupError != null) {
+                            Text(setupError!!, color = AccentWicket, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = "MATCH FORMAT, OVERS & TOSS",
+                    color = tokens.accentGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            item {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = tokens.glassCardBackground,
+                    borderColor = tokens.glassCardBorder
+                ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        // Format Selector
                         ExposedDropdownMenuBox(
                             expanded = formatExpanded,
                             onExpandedChange = { formatExpanded = !formatExpanded }
@@ -209,7 +340,10 @@ fun MatchSetupScreen(
                                 modifier = Modifier
                                     .menuAnchor()
                                     .fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary
+                                )
                             )
                             ExposedDropdownMenu(
                                 expanded = formatExpanded,
@@ -236,36 +370,27 @@ fun MatchSetupScreen(
                                 value = totalOversText,
                                 onValueChange = { totalOversText = it.filter { ch -> ch.isDigit() } },
                                 label = { Text("Total Overs") },
+                                singleLine = true,
                                 modifier = Modifier.weight(1f),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary
+                                )
                             )
 
                             OutlinedTextField(
                                 value = playersPerSideText,
                                 onValueChange = { playersPerSideText = it.filter { ch -> ch.isDigit() } },
                                 label = { Text("Players Per Side") },
+                                singleLine = true,
                                 modifier = Modifier.weight(1f),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary
+                                )
                             )
                         }
-                    }
-                }
-            }
 
-            item {
-                Text(
-                    text = "TOSS & BATTING ORDER",
-                    color = GoldBright,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-
-            item {
-                GlassCard(modifier = Modifier.fillMaxWidth(), backgroundColor = Color(0xCC161622)) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        // Toss Winner
                         ExposedDropdownMenuBox(
                             expanded = tossWinnerExpanded,
                             onExpandedChange = { tossWinnerExpanded = !tossWinnerExpanded }
@@ -279,7 +404,10 @@ fun MatchSetupScreen(
                                 modifier = Modifier
                                     .menuAnchor()
                                     .fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary
+                                )
                             )
                             ExposedDropdownMenu(
                                 expanded = tossWinnerExpanded,
@@ -298,7 +426,6 @@ fun MatchSetupScreen(
                             }
                         }
 
-                        // Toss Decision
                         ExposedDropdownMenuBox(
                             expanded = tossDecisionExpanded,
                             onExpandedChange = { tossDecisionExpanded = !tossDecisionExpanded }
@@ -312,7 +439,10 @@ fun MatchSetupScreen(
                                 modifier = Modifier
                                     .menuAnchor()
                                     .fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = tokens.textPrimary,
+                                    unfocusedTextColor = tokens.textPrimary
+                                )
                             )
                             ExposedDropdownMenu(
                                 expanded = tossDecisionExpanded,
@@ -334,13 +464,14 @@ fun MatchSetupScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0x33D4AF37))
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0x2800E5FF))
+                                .border(1.dp, tokens.accentGold, RoundedCornerShape(10.dp))
                                 .padding(12.dp)
                         ) {
                             Text(
                                 text = "Batting First: $battingFirstTeam",
-                                color = GoldLight,
+                                color = tokens.accentGoldLight,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
@@ -350,22 +481,16 @@ fun MatchSetupScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "SELECT SQUAD MEMBERS (${selectedPlayerIds.value.size})",
-                        color = GoldBright,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                }
+                Text(
+                    text = "SELECT SQUAD LINEUP (${selectedPlayerIds.value.size} SELECTED)",
+                    color = tokens.accentGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
             }
 
-            items(allPlayers) { player ->
+            items(allPlayers, key = { it.id }) { player ->
                 val isSelected = selectedPlayerIds.value.contains(player.id)
                 GlassCard(
                     modifier = Modifier
@@ -375,8 +500,8 @@ fun MatchSetupScreen(
                             if (isSelected) set.remove(player.id) else set.add(player.id)
                             selectedPlayerIds.value = set
                         },
-                    backgroundColor = if (isSelected) Color(0x33D4AF37) else Color(0x99161620),
-                    borderColor = if (isSelected) GoldPrimary else Color(0x22D4AF37)
+                    backgroundColor = if (isSelected) Color(0x2800E5FF) else tokens.glassCardBackground,
+                    borderColor = if (isSelected) tokens.accentGold else tokens.glassCardBorderSubtle
                 ) {
                     Row(
                         modifier = Modifier
@@ -397,13 +522,13 @@ fun MatchSetupScreen(
                         Column {
                             Text(
                                 text = "${player.fullName} (#${player.jerseyNumber})",
-                                color = Color.White,
+                                color = tokens.textPrimary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
                             Text(
                                 text = "${player.role.displayName} • ${player.battingHand.displayName}",
-                                color = TextSecondary,
+                                color = tokens.textSecondary,
                                 fontSize = 11.sp
                             )
                         }
@@ -416,6 +541,12 @@ fun MatchSetupScreen(
                 GoldButton(
                     text = "Start Match & Live Scoring",
                     onClick = {
+                        val s = openingStriker.trim()
+                        val ns = openingNonStriker.trim()
+                        if (s.isNotEmpty() && ns.isNotEmpty() && s.equals(ns, ignoreCase = true)) {
+                            setupError = "Opening Striker and Non-Striker cannot be the same player."
+                            return@GoldButton
+                        }
                         val overs = totalOversText.toIntOrNull() ?: 20
                         val playersCount = playersPerSideText.toIntOrNull() ?: 11
                         viewModel.createMatch(
@@ -433,6 +564,9 @@ fun MatchSetupScreen(
                             battingFirst = battingFirstTeam,
                             selectedSquadIds = selectedPlayerIds.value.toList(),
                             awayPlayers = listOf("Opener 1", "Opener 2", "Player 3", "Player 4", "Player 5"),
+                            openingStriker = s,
+                            openingNonStriker = ns,
+                            openingBowler = openingBowler.trim(),
                             onCreated = onMatchCreated
                         )
                     },

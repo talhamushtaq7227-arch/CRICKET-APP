@@ -1,7 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -15,7 +13,8 @@ import androidx.compose.ui.graphics.Color
 import com.example.data.repository.GlassThemeMode
 
 /**
- * High-fidelity iOS Liquid Glass tokens for Dark and White theme modes.
+ * Solid Midnight Navy & Bright Cyan Sports Design System tokens.
+ * Replaces translucent liquid glass with clean, solid modern UI panels, crisp borders, and 3D depth.
  */
 data class LiquidGlassTokens(
     val isDark: Boolean,
@@ -49,13 +48,13 @@ data class LiquidGlassTokens(
     val cardShadowColor: Color
 ) {
     val goldGradient: Brush
-        get() = Brush.horizontalGradient(listOf(accentGoldBright, accentGold, accentGoldDark))
+        get() = Brush.horizontalGradient(listOf(accentGoldLight, accentGold, accentGoldDark))
 
     val specularBrush: Brush
         get() = Brush.verticalGradient(
             listOf(glassSpecularTop, Color.Transparent),
             startY = 0f,
-            endY = 40f
+            endY = 24f
         )
 
     val glassBorder: Color
@@ -65,73 +64,73 @@ data class LiquidGlassTokens(
         get() = glassCardElevated
 
     val buttonContent: Color
-        get() = if (isDark) Color(0xFF07070B) else Color.White
+        get() = if (isDark) Color(0xFF041022) else Color.White
 }
 
-// Dark Liquid Glass Palette (Obsidian + Frosted Smoked Glass + 24K Gold)
+// Solid Midnight Navy & Bright Cyan Sports Palette (matches reference image)
 val DarkLiquidGlassTokens = LiquidGlassTokens(
     isDark = true,
-    backgroundBase = Color(0xFF07070B),
-    ambientMesh1 = Color(0xFF0F111E),
-    ambientMesh2 = Color(0xFF1E170C),
-    ambientMesh3 = Color(0xFF13101C),
-    glassCardBackground = Color(0xCC11121C),
-    glassCardElevated = Color(0xE0171826),
-    glassCardBorder = Color(0x40D4AF37),
-    glassCardBorderSubtle = Color(0x20FFFFFF),
-    glassSpecularTop = Color(0x35FFFFFF),
-    glassSpecularBottom = Color(0x06FFFFFF),
-    textPrimary = Color(0xFFFFFFFF),
-    textSecondary = Color(0xFFB4B4C8),
-    textMuted = Color(0xFF71718A),
-    textGold = Color(0xFFFFDF73),
-    accentGold = Color(0xFFD4AF37),
-    accentGoldBright = Color(0xFFFFDF73),
-    accentGoldDark = Color(0xFFA67C1E),
-    accentGoldLight = Color(0xFFFFF1C2),
-    navDockBackground = Color(0xDD0D0E16),
-    navDockBorder = Color(0x44D4AF37),
-    navPillBackground = Color(0xFFD4AF37),
-    navPillContent = Color(0xFF08080A),
-    navUnselectedContent = Color(0xFF8E8EA6),
-    chipBackground = Color(0xCC1A1A26),
-    chipSelectedBackground = Color(0xFFD4AF37),
-    searchBarBackground = Color(0xCC101018),
-    searchBarBorder = Color(0x44D4AF37),
-    cardShadowColor = Color(0x80000000)
+    backgroundBase = Color(0xFF050C1A),
+    ambientMesh1 = Color(0xFF0A1D3B),
+    ambientMesh2 = Color(0xFF082B49),
+    ambientMesh3 = Color(0xFF07152B),
+    glassCardBackground = Color(0xFF09172C),
+    glassCardElevated = Color(0xFF0D213F),
+    glassCardBorder = Color(0xFF173F70),
+    glassCardBorderSubtle = Color(0xFF112E54),
+    glassSpecularTop = Color(0x143CE2FF),
+    glassSpecularBottom = Color(0x00000000),
+    textPrimary = Color(0xFFF6FAFF),
+    textSecondary = Color(0xFF9AB8D9),
+    textMuted = Color(0xFF5E80A6),
+    textGold = Color(0xFF3CE2FF),
+    accentGold = Color(0xFF29E2FF),
+    accentGoldBright = Color(0xFF4AE8FF),
+    accentGoldDark = Color(0xFF00B8D4),
+    accentGoldLight = Color(0xFFA4F0FF),
+    navDockBackground = Color(0xFF08172E),
+    navDockBorder = Color(0xFF173F70),
+    navPillBackground = Color(0xFF3CE2FF),
+    navPillContent = Color(0xFF041022),
+    navUnselectedContent = Color(0xFF8AAAD0),
+    chipBackground = Color(0xFF0B1C36),
+    chipSelectedBackground = Color(0xFF3CE2FF),
+    searchBarBackground = Color(0xFF09172C),
+    searchBarBorder = Color(0xFF173F70),
+    cardShadowColor = Color(0xCC02060E)
 )
 
-// White Liquid Glass Palette (Crystal Frosted Milky Glass + Ice Reflection + Champagne Gold)
+// Clean Ice-Blue & Deep Navy Daylight Sports Palette
 val WhiteLiquidGlassTokens = LiquidGlassTokens(
     isDark = false,
-    backgroundBase = Color(0xFFF3F5FA),
-    ambientMesh1 = Color(0xFFE6EEF8),
-    ambientMesh2 = Color(0xFFFDF6EA),
-    ambientMesh3 = Color(0xFFEBF1F7),
-    glassCardBackground = Color(0xE6FFFFFF),
-    glassCardElevated = Color(0xF8FFFFFF),
-    glassCardBorder = Color(0x80D4AF37),
-    glassCardBorderSubtle = Color(0x33000000),
-    glassSpecularTop = Color(0xF0FFFFFF),
-    glassSpecularBottom = Color(0x15000000),
-    textPrimary = Color(0xFF0A0F1D), // Deep rich ink for maximum legibility outdoors
-    textSecondary = Color(0xFF475569), // Slate 600
-    textMuted = Color(0xFF8090A5),
-    textGold = Color(0xFF9A6E04),
-    accentGold = Color(0xFFB8860B),
-    accentGoldBright = Color(0xFFD4AF37),
-    accentGoldDark = Color(0xFF8F6704),
-    accentGoldLight = Color(0xFFFAF0D7),
-    navDockBackground = Color(0xF0FFFFFF),
-    navDockBorder = Color(0x80D4AF37),
-    navPillBackground = Color(0xFFD4AF37),
-    navPillContent = Color(0xFF0A0F1D),
-    navUnselectedContent = Color(0xFF64748B),
-    chipBackground = Color(0xEEEDF2F7),
-    chipSelectedBackground = Color(0xFFD4AF37),
-    searchBarBackground = Color(0xF2FFFFFF),
-    searchBarBorder = Color(0x66D4AF37),
-    cardShadowColor = Color(0x18000000)
+    backgroundBase = Color(0xFFF0F6FC),
+    ambientMesh1 = Color(0xFFDCECFB),
+    ambientMesh2 = Color(0xFFD0F0F8),
+    ambientMesh3 = Color(0xFFE4F0FA),
+    glassCardBackground = Color(0xFFFFFFFF),
+    glassCardElevated = Color(0xFFF5FAFF),
+    glassCardBorder = Color(0xFFB8D8F0),
+    glassCardBorderSubtle = Color(0xFFD6E8F8),
+    glassSpecularTop = Color(0x00FFFFFF),
+    glassSpecularBottom = Color(0x00FFFFFF),
+    textPrimary = Color(0xFF051329),
+    textSecondary = Color(0xFF355478),
+    textMuted = Color(0xFF6987A8),
+    textGold = Color(0xFF0088A9),
+    accentGold = Color(0xFF0091EA),
+    accentGoldBright = Color(0xFF00B8D4),
+    accentGoldDark = Color(0xFF006064),
+    accentGoldLight = Color(0xFFE0F7FA),
+    navDockBackground = Color(0xFFFFFFFF),
+    navDockBorder = Color(0xFFB8D8F0),
+    navPillBackground = Color(0xFF00B8D4),
+    navPillContent = Color(0xFF041022),
+    navUnselectedContent = Color(0xFF476788),
+    chipBackground = Color(0xFFE6F2FC),
+    chipSelectedBackground = Color(0xFF00B8D4),
+    searchBarBackground = Color(0xFFFFFFFF),
+    searchBarBorder = Color(0xFFB8D8F0),
+    cardShadowColor = Color(0x22031A38)
 )
 
 val LocalLiquidGlassTokens = compositionLocalOf { DarkLiquidGlassTokens }
@@ -144,8 +143,7 @@ object LiquidGlassTheme {
 }
 
 /**
- * Animated dynamic Liquid Glass Theme provider.
- * Supports Dark Liquid Glass and White Liquid Glass with smooth color interpolations.
+ * Solid Midnight Navy & Bright Cyan Theme Provider.
  */
 @Composable
 fun ProvideLiquidGlassTheme(
@@ -159,75 +157,55 @@ fun ProvideLiquidGlassTheme(
         GlassThemeMode.SYSTEM -> isSystemDark
     }
 
-    val targetTokens = if (isDark) DarkLiquidGlassTokens else WhiteLiquidGlassTokens
+    val activeTokens = if (isDark) DarkLiquidGlassTokens else WhiteLiquidGlassTokens
 
-    // Smoothly animate core theme colors for seamless switching
-    val animBg = animateColorAsState(targetTokens.backgroundBase, tween(350), label = "bg")
-    val animGlassBg = animateColorAsState(targetTokens.glassCardBackground, tween(350), label = "glassBg")
-    val animBorder = animateColorAsState(targetTokens.glassCardBorder, tween(350), label = "border")
-    val animTextPrimary = animateColorAsState(targetTokens.textPrimary, tween(350), label = "textPrimary")
-    val animTextSecondary = animateColorAsState(targetTokens.textSecondary, tween(350), label = "textSec")
-    val animAccentGold = animateColorAsState(targetTokens.accentGold, tween(350), label = "gold")
-    val animNavBg = animateColorAsState(targetTokens.navDockBackground, tween(350), label = "navBg")
-
-    val animatedTokens = targetTokens.copy(
-        backgroundBase = animBg.value,
-        glassCardBackground = animGlassBg.value,
-        glassCardBorder = animBorder.value,
-        textPrimary = animTextPrimary.value,
-        textSecondary = animTextSecondary.value,
-        accentGold = animAccentGold.value,
-        navDockBackground = animNavBg.value
-    )
-
-    // Build Material 3 ColorScheme matching active Liquid Glass theme
     val m3ColorScheme = if (isDark) {
         darkColorScheme(
-            primary = animatedTokens.accentGold,
+            primary = activeTokens.accentGold,
             onPrimary = CharcoalBlack,
-            primaryContainer = animatedTokens.accentGoldDark,
-            onPrimaryContainer = animatedTokens.accentGoldLight,
-            secondary = animatedTokens.accentGoldBright,
+            primaryContainer = activeTokens.accentGoldDark,
+            onPrimaryContainer = activeTokens.accentGoldLight,
+            secondary = activeTokens.accentGoldBright,
             onSecondary = CharcoalBlack,
-            secondaryContainer = animatedTokens.glassCardElevated,
-            onSecondaryContainer = animatedTokens.accentGoldLight,
+            secondaryContainer = activeTokens.glassCardElevated,
+            onSecondaryContainer = activeTokens.accentGoldLight,
             tertiary = AccentFour,
             onTertiary = Color.White,
-            background = animatedTokens.backgroundBase,
-            onBackground = animatedTokens.textPrimary,
-            surface = animatedTokens.glassCardBackground,
-            onSurface = animatedTokens.textPrimary,
-            surfaceVariant = animatedTokens.glassCardElevated,
-            onSurfaceVariant = animatedTokens.textSecondary,
-            outline = animatedTokens.glassCardBorder,
+            background = activeTokens.backgroundBase,
+            onBackground = activeTokens.textPrimary,
+            surface = activeTokens.glassCardBackground,
+            onSurface = activeTokens.textPrimary,
+            surfaceVariant = activeTokens.glassCardElevated,
+            onSurfaceVariant = activeTokens.textSecondary,
             error = AccentWicket,
-            onError = Color.White
+            onError = Color.White,
+            outline = activeTokens.glassCardBorder
         )
     } else {
         lightColorScheme(
-            primary = animatedTokens.accentGold,
+            primary = activeTokens.accentGold,
             onPrimary = Color.White,
-            primaryContainer = animatedTokens.accentGoldLight,
-            onPrimaryContainer = animatedTokens.textPrimary,
-            secondary = animatedTokens.accentGoldBright,
-            onSecondary = animatedTokens.textPrimary,
-            secondaryContainer = animatedTokens.glassCardElevated,
-            onSecondaryContainer = animatedTokens.textPrimary,
+            primaryContainer = activeTokens.accentGoldLight,
+            onPrimaryContainer = activeTokens.accentGoldDark,
+            secondary = activeTokens.accentGoldBright,
+            onSecondary = Color.White,
+            secondaryContainer = activeTokens.chipBackground,
+            onSecondaryContainer = activeTokens.textPrimary,
             tertiary = AccentFour,
             onTertiary = Color.White,
-            background = animatedTokens.backgroundBase,
-            onBackground = animatedTokens.textPrimary,
-            surface = animatedTokens.glassCardBackground,
-            onSurface = animatedTokens.textPrimary,
-            surfaceVariant = animatedTokens.glassCardElevated,
-            onSurfaceVariant = animatedTokens.textSecondary,
-            outline = animatedTokens.glassCardBorder,
+            background = activeTokens.backgroundBase,
+            onBackground = activeTokens.textPrimary,
+            surface = activeTokens.glassCardBackground,
+            onSurface = activeTokens.textPrimary,
+            surfaceVariant = activeTokens.glassCardElevated,
+            onSurfaceVariant = activeTokens.textSecondary,
             error = AccentWicket,
-            onError = Color.White
+            onError = Color.White,
+            outline = activeTokens.glassCardBorder
         )
     }
 
-    CompositionLocalProvider(LocalLiquidGlassTokens provides animatedTokens) {
+    CompositionLocalProvider(LocalLiquidGlassTokens provides activeTokens) {
         MaterialTheme(
             colorScheme = m3ColorScheme,
             typography = Typography,

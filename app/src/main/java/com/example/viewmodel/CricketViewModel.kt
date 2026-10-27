@@ -24,13 +24,11 @@ import com.example.data.repository.CricketRepository
 import com.example.data.repository.PreferencesRepository
 import com.example.domain.engine.CricketRulesEngine
 import com.example.domain.engine.InningsLiveState
-import com.example.domain.engine.PlayerDetailedStatistics
-import com.example.domain.engine.PlayerStatisticsCalculator
 import com.example.domain.engine.PlayerStats
 import com.example.video.ScoreboardVideoExporter
-import com.example.video.VideoExportState
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,6 +38,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,6 +60,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
     val currentUser: StateFlow<FirebaseUser?> = authManager.currentUser
     val isAuthenticating: StateFlow<Boolean> = authManager.isAuthenticating
+    val authStatusMessage: StateFlow<String?> = authManager.authStatusMessage
 
     // Data streams
     val allPlayers: StateFlow<List<PlayerEntity>> = repository.getAllPlayers()
@@ -79,6 +83,29 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
     val latestUnfinishedMatch: StateFlow<MatchEntity?> = repository.getLatestUnfinishedMatch()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val featuredMatchStates: StateFlow<Pair<InningsLiveState?, InningsLiveState?>> = combine(
+        latestUnfinishedMatch,
+        allMatches
+    ) { unfinished, all ->
+        unfinished ?: all.firstOrNull()
+    }
+        .distinctUntilChanged()
+        .flatMapLatest { featured ->
+            if (featured == null) {
+                flowOf(null to null)
+            } else {
+                repository.getDeliveriesForMatch(featured.id).map { matchBalls ->
+                    val inn1 = CricketRulesEngine.calculateInningsState(featured, 1, matchBalls)
+                    val inn2 = CricketRulesEngine.calculateInningsState(featured, 2, matchBalls)
+                    inn1 to inn2
+                }
+            }
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null to null)
 
     val rankings: StateFlow<List<PlayerStats>> = repository.getPlayerRankingsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -108,13 +135,14 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     private val _inningsLiveState = MutableStateFlow<InningsLiveState>(InningsLiveState())
     val inningsLiveState: StateFlow<InningsLiveState> = _inningsLiveState.asStateFlow()
 
-    // Temporary scoring selections
+    // Active scoring player selections
     val selectedStrikerName = MutableStateFlow("")
     val selectedNonStrikerName = MutableStateFlow("")
     val selectedBowlerName = MutableStateFlow("")
+    private var bowlerSelectedForNextOver = false
 
     // Event flow for snacks / dialogs
-    private val _userMessage = MutableSharedFlow<String>()
+    private val _userMessage = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     // Cricket-specific animation events (Boundaries 4/6, Wicket, Milestone)
@@ -126,25 +154,29 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
-        // Observe deliveries for current match
         viewModelScope.launch {
-            _currentMatch.collectLatest { match ->
-                if (match != null) {
-                    repository.getDeliveriesForMatch(match.id).collectLatest { deliveries ->
-                        _currentMatchDeliveries.value = deliveries
-                        recalculateLiveState(match, deliveries)
+            _currentMatch
+                .map { it?.id }
+                .distinctUntilChanged()
+                .collectLatest { matchId ->
+                    if (matchId != null) {
+                        repository.getDeliveriesForMatch(matchId).collectLatest { deliveries ->
+                            _currentMatchDeliveries.value = deliveries
+                            val match = _currentMatch.value
+                            if (match != null && match.id == matchId) {
+                                recalculateLiveState(match, deliveries)
+                            }
+                        }
+                    } else {
+                        _currentMatchDeliveries.value = emptyList()
+                        _inningsLiveState.value = InningsLiveState()
                     }
-                } else {
-                    _currentMatchDeliveries.value = emptyList()
-                    _inningsLiveState.value = InningsLiveState()
                 }
-            }
         }
 
-        // Auto-update match sourceVideoPath when camera recording is finalized
         viewModelScope.launch {
             cameraManager.recordingStatus.collect { status ->
-                if (status is com.example.camera.RecordingStatus.Completed) {
+                if (status is RecordingStatus.Completed) {
                     val match = _currentMatch.value
                     if (match != null) {
                         val updated = match.copy(sourceVideoPath = status.file.absolutePath)
@@ -158,40 +190,194 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
     fun loadMatch(matchId: Long) {
         viewModelScope.launch {
+            val current = _currentMatch.value
             val match = repository.getMatchById(matchId)
+            if (match != null && current?.id != match.id) {
+                selectedStrikerName.value = ""
+                selectedNonStrikerName.value = ""
+                selectedBowlerName.value = ""
+                bowlerSelectedForNextOver = false
+            }
             _currentMatch.value = match
         }
     }
 
-    private fun recalculateLiveState(match: MatchEntity, deliveries: List<BallDeliveryEntity>) {
-        val state = CricketRulesEngine.calculateInningsState(
-            match = match,
-            inningsNumber = match.currentInnings,
-            deliveries = deliveries,
-            initialStrikerName = selectedStrikerName.value.ifEmpty { null },
-            initialNonStrikerName = selectedNonStrikerName.value.ifEmpty { null },
-            initialBowlerName = selectedBowlerName.value.ifEmpty { null }
-        )
+    /**
+     * Ensures a player name entered during live scoring or setup exists in the squad database
+     * so no duplicate or orphaned players occur.
+     */
+    private suspend fun ensurePlayerInSquad(name: String, defaultRole: PlayerRole = PlayerRole.ALL_ROUNDER) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty() ||
+            cleanName.equals("Striker", ignoreCase = true) ||
+            cleanName.equals("Non-striker", ignoreCase = true) ||
+            cleanName.equals("Batter 1", ignoreCase = true) ||
+            cleanName.equals("Batter 2", ignoreCase = true) ||
+            cleanName.equals("Bowler 1", ignoreCase = true) ||
+            cleanName.equals("New Batter", ignoreCase = true)
+        ) {
+            return
+        }
+        val exists = allPlayers.value.any { it.fullName.equals(cleanName, ignoreCase = true) }
+        if (!exists) {
+            val nextJersey = (allPlayers.value.maxOfOrNull { it.jerseyNumber } ?: 0) + 1
+            repository.insertPlayer(
+                PlayerEntity(
+                    fullName = cleanName,
+                    jerseyNumber = nextJersey,
+                    role = defaultRole,
+                    battingHand = BattingHand.RIGHT_HAND,
+                    bowlingStyle = BowlingStyle.RIGHT_ARM_MEDIUM
+                )
+            )
+        }
+    }
+
+    /**
+     * Immediately updates the active bowler for the current/next over and recalculates live state
+     * so the BowlerSelectionDialog closes right away and never loops.
+     */
+    fun selectBowler(bowlerName: String) {
+        val cleanBowler = bowlerName.trim()
+        if (cleanBowler.isEmpty()) return
+
+        viewModelScope.launch {
+            ensurePlayerInSquad(cleanBowler, PlayerRole.BOWLER)
+            selectedBowlerName.value = cleanBowler
+            bowlerSelectedForNextOver = true
+            val match = _currentMatch.value
+            if (match != null) {
+                recalculateLiveState(match, _currentMatchDeliveries.value)
+            }
+            _userMessage.emit("Active bowler set to $cleanBowler")
+        }
+    }
+
+    /**
+     * Updates active striker and non-striker during a match, preventing duplicate player selection
+     * and dismissal conflicts, and immediately updates the live scoreboard.
+     */
+    fun selectBatters(strikerName: String, nonStrikerName: String) {
+        val cleanStriker = strikerName.trim()
+        val cleanNonStriker = nonStrikerName.trim()
+
+        if (cleanStriker.isEmpty() || cleanNonStriker.isEmpty()) {
+            viewModelScope.launch {
+                _userMessage.emit("Both Striker and Non-Striker must be selected.")
+            }
+            return
+        }
+
+        if (cleanStriker.equals(cleanNonStriker, ignoreCase = true)) {
+            viewModelScope.launch {
+                _userMessage.emit("Striker and Non-Striker cannot be the same player.")
+            }
+            return
+        }
+
+        val dismissedNames = _inningsLiveState.value.battingCard
+            .filter { it.isOut }
+            .map { it.playerName.lowercase() }
+            .toSet()
+
+        if (dismissedNames.contains(cleanStriker.lowercase()) || dismissedNames.contains(cleanNonStriker.lowercase())) {
+            viewModelScope.launch {
+                _userMessage.emit("Cannot select a batsman who is already out in this innings.")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            ensurePlayerInSquad(cleanStriker, PlayerRole.BATTER)
+            ensurePlayerInSquad(cleanNonStriker, PlayerRole.BATTER)
+            selectedStrikerName.value = cleanStriker
+            selectedNonStrikerName.value = cleanNonStriker
+            val match = _currentMatch.value
+            if (match != null) {
+                recalculateLiveState(match, _currentMatchDeliveries.value)
+            }
+            _userMessage.emit("Batting pair updated: $cleanStriker* & $cleanNonStriker")
+        }
+    }
+
+    /**
+     * Manually swaps striker and non-striker ends.
+     */
+    fun swapStrikeManually() {
+        val state = _inningsLiveState.value
+        val s = selectedStrikerName.value.ifEmpty { state.currentStriker?.playerName.orEmpty() }
+        val ns = selectedNonStrikerName.value.ifEmpty { state.currentNonStriker?.playerName.orEmpty() }
+        if (s.isNotEmpty() && ns.isNotEmpty() && !s.equals(ns, ignoreCase = true)) {
+            selectedStrikerName.value = ns
+            selectedNonStrikerName.value = s
+            val match = _currentMatch.value
+            if (match != null) {
+                viewModelScope.launch {
+                    recalculateLiveState(match, _currentMatchDeliveries.value)
+                    _userMessage.emit("Strike rotated: $ns is now on strike")
+                }
+            }
+        }
+    }
+
+    private suspend fun recalculateLiveState(match: MatchEntity, deliveries: List<BallDeliveryEntity>) {
+        // Default initial players from squad if no balls have been bowled and none selected yet
+        val inningsDeliveries = deliveries.filter { it.inningsNumber == match.currentInnings }
+        if (inningsDeliveries.isEmpty()) {
+            val squadPlayers = allPlayers.value
+            if (selectedStrikerName.value.isEmpty() && squadPlayers.isNotEmpty()) {
+                selectedStrikerName.value = squadPlayers[0].fullName
+            }
+            if (selectedNonStrikerName.value.isEmpty() && squadPlayers.size >= 2) {
+                val second = squadPlayers.firstOrNull { !it.fullName.equals(selectedStrikerName.value, ignoreCase = true) }
+                if (second != null) selectedNonStrikerName.value = second.fullName
+            }
+            if (selectedBowlerName.value.isEmpty() && squadPlayers.size >= 3) {
+                val bowlerCandidate = squadPlayers.lastOrNull {
+                    !it.fullName.equals(selectedStrikerName.value, ignoreCase = true) &&
+                        !it.fullName.equals(selectedNonStrikerName.value, ignoreCase = true)
+                }
+                if (bowlerCandidate != null) selectedBowlerName.value = bowlerCandidate.fullName
+            }
+        }
+
+        val state = withContext(Dispatchers.Default) {
+            CricketRulesEngine.calculateInningsState(
+                match = match,
+                inningsNumber = match.currentInnings,
+                deliveries = deliveries,
+                initialStrikerName = selectedStrikerName.value.ifEmpty { null },
+                initialNonStrikerName = selectedNonStrikerName.value.ifEmpty { null },
+                initialBowlerName = selectedBowlerName.value.ifEmpty { null },
+                bowlerSelectedForNextOver = bowlerSelectedForNextOver,
+                activeStrikerOverride = selectedStrikerName.value.ifEmpty { null },
+                activeNonStrikerOverride = selectedNonStrikerName.value.ifEmpty { null },
+                activeBowlerOverride = selectedBowlerName.value.ifEmpty { null }
+            )
+        }
         _inningsLiveState.value = state
 
-        // Update selected names from live state if not manually set
-        state.currentStriker?.let { selectedStrikerName.value = it.playerName }
-        state.currentNonStriker?.let { selectedNonStrikerName.value = it.playerName }
-        state.currentBowler?.let { selectedBowlerName.value = it.bowlerName }
+        // Synchronize active names from calculated live state
+        state.currentStriker?.playerName?.takeIf { it.isNotEmpty() }?.let {
+            selectedStrikerName.value = it
+        }
+        state.currentNonStriker?.playerName?.takeIf { it.isNotEmpty() }?.let {
+            selectedNonStrikerName.value = it
+        }
+        state.currentBowler?.bowlerName?.takeIf { it.isNotEmpty() }?.let {
+            selectedBowlerName.value = it
+        }
 
-        // Auto update match completion status if finished
         if (state.isMatchComplete && !match.isCompleted) {
-            viewModelScope.launch {
-                val updated = match.copy(
-                    isCompleted = true,
-                    winnerTeam = state.resultSummary,
-                    winMargin = state.resultSummary,
-                    isDraft = false,
-                    updatedAt = System.currentTimeMillis()
-                )
-                repository.updateMatch(updated)
-                _currentMatch.value = updated
-            }
+            val updated = match.copy(
+                isCompleted = true,
+                winnerTeam = state.resultSummary,
+                winMargin = state.resultSummary,
+                isDraft = false,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.updateMatch(updated)
+            _currentMatch.value = updated
         }
     }
 
@@ -230,6 +416,8 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             wicketType = wicketType
         )
 
+        val actualDismissed = if (isWicket) (dismissedPlayerName?.trim()?.ifEmpty { striker } ?: striker) else null
+
         val delivery = BallDeliveryEntity(
             matchId = match.id,
             inningsNumber = match.currentInnings,
@@ -246,35 +434,70 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             isLegalDelivery = isLegal,
             isWicket = isWicket,
             wicketType = wicketType,
-            dismissedPlayerName = if (isWicket) (dismissedPlayerName ?: striker) else null,
-            fielderPlayerName = fielderPlayerName,
+            dismissedPlayerName = actualDismissed,
+            fielderPlayerName = fielderPlayerName?.trim()?.ifEmpty { null },
             videoTimestampMs = if (videoTimeMs > 0) videoTimeMs else null,
             commentary = commentary
         )
 
         viewModelScope.launch {
-            repository.insertDelivery(delivery)
+            // Compute post-delivery striker & non-striker BEFORE inserting delivery so recalculateLiveState
+            // immediately knows the incoming batter and exact strike rotation!
+            var postStriker = striker
+            var postNonStriker = nonStriker
 
-            // If wicket and incoming batter provided, update active striker
-            if (isWicket && !newIncomingBatterName.isNullOrBlank()) {
-                val dismissed = dismissedPlayerName ?: striker
-                if (dismissed == striker) {
-                    selectedStrikerName.value = newIncomingBatterName
+            if (isWicket) {
+                val incoming = newIncomingBatterName?.trim().orEmpty()
+                if (incoming.isNotEmpty()) {
+                    ensurePlayerInSquad(incoming, PlayerRole.BATTER)
+                }
+                val replacement = incoming.ifEmpty { "Batter ${state.totalWickets + 3}" }
+                if (actualDismissed.equals(postStriker, ignoreCase = true)) {
+                    postStriker = replacement
+                } else if (actualDismissed.equals(postNonStriker, ignoreCase = true)) {
+                    postNonStriker = replacement
                 } else {
-                    selectedNonStrikerName.value = newIncomingBatterName
+                    postStriker = replacement
                 }
             }
 
-            // Update match timestamp
-            repository.updateMatch(match.copy(updatedAt = System.currentTimeMillis()))
+            // Physical runs rotation
+            val physicalRuns = when (extrasType) {
+                ExtrasType.BYE, ExtrasType.LEG_BYE -> extrasRuns
+                ExtrasType.WIDE -> maxOf(0, extrasRuns - 1)
+                else -> runsOffBat
+            }
+            if (physicalRuns % 2 != 0) {
+                val tmp = postStriker
+                postStriker = postNonStriker
+                postNonStriker = tmp
+            }
 
-            // Trigger visual cricket celebration animations
+            // End of over rotation (if this legal ball finishes the 6-ball over)
+            val willFinishOver = isLegal && ((state.ballsInCurrentOver + 1) >= 6)
+            if (willFinishOver) {
+                val tmp = postStriker
+                postStriker = postNonStriker
+                postNonStriker = tmp
+            }
+
+            selectedStrikerName.value = postStriker
+            selectedNonStrikerName.value = postNonStriker
+            bowlerSelectedForNextOver = false
+
+            repository.insertDelivery(delivery)
+            if (currentDeliveries.isEmpty()) {
+                val updated = match.copy(isDraft = false, updatedAt = System.currentTimeMillis())
+                repository.updateMatch(updated)
+                _currentMatch.value = updated
+            }
+
             if (runsOffBat == 4) {
                 triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Four)
             } else if (runsOffBat == 6) {
                 triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Six)
             } else if (isWicket) {
-                val desc = if (!dismissedPlayerName.isNullOrBlank()) "$dismissedPlayerName OUT!" else "WICKET!"
+                val desc = if (!actualDismissed.isNullOrBlank()) "$actualDismissed OUT!" else "WICKET!"
                 triggerCricketAnimation(com.example.ui.components.CricketAnimationType.Wicket(desc))
             }
         }
@@ -283,6 +506,9 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     fun undoLastBall() {
         val match = _currentMatch.value ?: return
         viewModelScope.launch {
+            selectedStrikerName.value = ""
+            selectedNonStrikerName.value = ""
+            bowlerSelectedForNextOver = false
             repository.undoLastDelivery(match.id)
             _userMessage.emit("Last ball undone")
         }
@@ -299,11 +525,13 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
                 targetRuns = target,
                 updatedAt = System.currentTimeMillis()
             )
-            repository.updateMatch(updated)
-            _currentMatch.value = updated
             selectedStrikerName.value = ""
             selectedNonStrikerName.value = ""
             selectedBowlerName.value = ""
+            bowlerSelectedForNextOver = false
+            repository.updateMatch(updated)
+            _currentMatch.value = updated
+            recalculateLiveState(updated, _currentMatchDeliveries.value)
             _userMessage.emit("Innings 1 Complete. Target: $target")
         }
     }
@@ -314,7 +542,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val updated = match.copy(
                 isCompleted = true,
-                winnerTeam = state.resultSummary ?: "Match Ended",
+                winnerTeam = state.resultSummary ?: "Match Completed",
                 isDraft = false,
                 updatedAt = System.currentTimeMillis()
             )
@@ -339,9 +567,21 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
         battingFirst: String,
         selectedSquadIds: List<Long>,
         awayPlayers: List<String>,
+        openingStriker: String = "",
+        openingNonStriker: String = "",
+        openingBowler: String = "",
         onCreated: (Long) -> Unit
     ) {
         viewModelScope.launch {
+            if (openingStriker.isNotBlank()) ensurePlayerInSquad(openingStriker, PlayerRole.BATTER)
+            if (openingNonStriker.isNotBlank()) ensurePlayerInSquad(openingNonStriker, PlayerRole.BATTER)
+            if (openingBowler.isNotBlank()) ensurePlayerInSquad(openingBowler, PlayerRole.BOWLER)
+
+            selectedStrikerName.value = openingStriker.trim()
+            selectedNonStrikerName.value = openingNonStriker.trim()
+            selectedBowlerName.value = openingBowler.trim()
+            bowlerSelectedForNextOver = false
+
             val match = MatchEntity(
                 matchTitle = title,
                 tournamentName = tournament,
@@ -361,15 +601,24 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
                 isDraft = true
             )
             val id = repository.insertMatch(match)
-            loadMatch(id)
+            val createdMatch = repository.getMatchById(id)
+            _currentMatch.value = createdMatch
             onCreated(id)
         }
     }
 
     fun insertPlayer(player: PlayerEntity) {
+        val cleanName = player.fullName.trim()
+        if (cleanName.isEmpty()) return
+        if (allPlayers.value.any { it.fullName.equals(cleanName, ignoreCase = true) && it.id != player.id }) {
+            viewModelScope.launch {
+                _userMessage.emit("Player '$cleanName' is already in the squad.")
+            }
+            return
+        }
         viewModelScope.launch {
-            repository.insertPlayer(player)
-            _userMessage.emit("Player ${player.fullName} added to squad")
+            repository.insertPlayer(player.copy(fullName = cleanName))
+            _userMessage.emit("Player $cleanName added to squad")
         }
     }
 
@@ -381,9 +630,17 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
         bowlingStyle: BowlingStyle,
         notes: String?
     ) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        if (allPlayers.value.any { it.fullName.equals(cleanName, ignoreCase = true) }) {
+            viewModelScope.launch {
+                _userMessage.emit("Player '$cleanName' already exists in the squad.")
+            }
+            return
+        }
         viewModelScope.launch {
             val player = PlayerEntity(
-                fullName = name.trim(),
+                fullName = cleanName,
                 jerseyNumber = jersey,
                 role = role,
                 battingHand = battingHand,
@@ -391,7 +648,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
                 notes = notes?.trim()
             )
             repository.insertPlayer(player)
-            _userMessage.emit("Player $name added to squad")
+            _userMessage.emit("Player $cleanName added to squad")
         }
     }
 
@@ -525,7 +782,7 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             scope = viewModelScope,
             onSuccess = { user ->
                 viewModelScope.launch {
-                    _userMessage.emit("Welcome, ${user.displayName ?: "Cricket Fan"}!")
+                    _userMessage.emit("Welcome, ${user.displayName ?: "Cricket Captain"}!")
                 }
             },
             onError = { err ->
@@ -582,9 +839,13 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             try {
-                val result = cloudRepository.restoreDataFromCloud()
+                val existingNames = allPlayers.value.map { it.fullName }.toSet()
+                val result = cloudRepository.restoreDataFromCloud(
+                    localRepository = repository,
+                    existingPlayerNames = existingNames
+                )
                 if (result.isSuccess) {
-                    onComplete(true, "Successfully connected to Cloud Firestore (${result.getOrNull()} cloud records available).")
+                    onComplete(true, "Successfully synced ${result.getOrNull() ?: 0} records from Cloud Firestore.")
                 } else {
                     onComplete(false, result.exceptionOrNull()?.localizedMessage ?: "Restore failed")
                 }
@@ -593,10 +854,4 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-
-    override fun onCleared() {
-        super.onCleared()
-        cameraManager.release()
-    }
 }
-

@@ -1,9 +1,11 @@
 package com.example.domain.engine
 
+import androidx.compose.runtime.Immutable
 import com.example.data.model.BallDeliveryEntity
 import com.example.data.model.WicketType
 import java.util.Locale
 
+@Immutable
 data class BatterInningsStats(
     val playerName: String,
     val playerId: Long? = null,
@@ -24,6 +26,7 @@ data class BatterInningsStats(
         get() = String.format(Locale.US, "%.1f", strikeRate)
 }
 
+@Immutable
 data class BowlerInningsStats(
     val bowlerName: String,
     val bowlerId: Long? = null,
@@ -45,6 +48,7 @@ data class BowlerInningsStats(
         get() = String.format(Locale.US, "%.2f", economyRate)
 }
 
+@Immutable
 data class ExtrasBreakdown(
     val wides: Int = 0,
     val noBalls: Int = 0,
@@ -58,6 +62,7 @@ data class ExtrasBreakdown(
         get() = "$total (w $wides, nb $noBalls, b $byes, lb $legByes, pen $penalties)"
 }
 
+@Immutable
 data class FallOfWicket(
     val wicketNumber: Int,
     val score: Int,
@@ -65,6 +70,7 @@ data class FallOfWicket(
     val batsmanName: String
 )
 
+@Immutable
 data class Partnership(
     val runs: Int = 0,
     val balls: Int = 0,
@@ -74,6 +80,7 @@ data class Partnership(
     val batter2Runs: Int = 0
 )
 
+@Immutable
 data class InningsLiveState(
     val inningsNumber: Int = 1,
     val battingTeam: String = "",

@@ -32,8 +32,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,29 +100,41 @@ fun PlayerComparisonScreen(
     val player1 = players.find { it.id == player1Id } ?: players.firstOrNull()
     val player2 = players.find { it.id == player2Id } ?: players.getOrNull(1)
 
-    val stats1 = remember(player1, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter) {
-        if (player1 != null) {
-            PlayerStatisticsCalculator.calculatePlayerStatistics(
-                player = player1,
-                matches = matches,
-                deliveries = deliveries,
-                seasonFilter = selectedSeasonFilter,
-                tournamentFilter = selectedTournamentFilter
-            )
+    val stats1State = produceState<PlayerDetailedStatistics?>(
+        initialValue = null,
+        player1, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter
+    ) {
+        value = if (player1 != null) {
+            withContext(Dispatchers.Default) {
+                PlayerStatisticsCalculator.calculatePlayerStatistics(
+                    player = player1,
+                    matches = matches,
+                    deliveries = deliveries,
+                    seasonFilter = selectedSeasonFilter,
+                    tournamentFilter = selectedTournamentFilter
+                )
+            }
         } else null
     }
+    val stats1 = stats1State.value
 
-    val stats2 = remember(player2, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter) {
-        if (player2 != null) {
-            PlayerStatisticsCalculator.calculatePlayerStatistics(
-                player = player2,
-                matches = matches,
-                deliveries = deliveries,
-                seasonFilter = selectedSeasonFilter,
-                tournamentFilter = selectedTournamentFilter
-            )
+    val stats2State = produceState<PlayerDetailedStatistics?>(
+        initialValue = null,
+        player2, matches, deliveries, selectedSeasonFilter, selectedTournamentFilter
+    ) {
+        value = if (player2 != null) {
+            withContext(Dispatchers.Default) {
+                PlayerStatisticsCalculator.calculatePlayerStatistics(
+                    player = player2,
+                    matches = matches,
+                    deliveries = deliveries,
+                    seasonFilter = selectedSeasonFilter,
+                    tournamentFilter = selectedTournamentFilter
+                )
+            }
         } else null
     }
+    val stats2 = stats2State.value
 
     Column(
         modifier = Modifier

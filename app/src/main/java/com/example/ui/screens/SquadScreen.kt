@@ -16,8 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,20 +52,13 @@ import coil.compose.AsyncImage
 import com.example.data.model.PlayerEntity
 import com.example.data.model.PlayerRole
 import com.example.domain.engine.PlayerStats
+import com.example.ui.components.CyanPillTabs
 import com.example.ui.components.EditPlayerProfileDialog
-import com.example.ui.components.GlassCard
-import com.example.ui.theme.CharcoalBlack
-import com.example.ui.theme.CharcoalDark
-import com.example.ui.theme.CharcoalElevated
-import com.example.ui.theme.GoldBright
-import com.example.ui.theme.GoldLight
-import com.example.ui.theme.GoldPrimary
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSecondary
-import com.example.viewmodel.CricketViewModel
-
 import com.example.ui.components.InteractiveGlassCard
+import com.example.ui.components.RcbCrestLogo
+import com.example.ui.components.liquid3DEntrance
 import com.example.ui.theme.LiquidGlassTheme
+import com.example.viewmodel.CricketViewModel
 
 @Composable
 fun SquadScreen(
@@ -79,15 +71,27 @@ fun SquadScreen(
     val rankings by viewModel.rankings.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilterRole by remember { mutableStateOf<PlayerRole?>(null) }
+    var selectedFilterIndex by remember { mutableStateOf(0) }
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPlayer by remember { mutableStateOf<PlayerEntity?>(null) }
 
-    val filteredPlayers = players.filter { player ->
-        val matchesQuery = player.fullName.contains(searchQuery, ignoreCase = true)
-        val matchesRole = selectedFilterRole == null || player.role == selectedFilterRole
-        matchesQuery && matchesRole
+    val roles = remember { listOf<PlayerRole?>(null) + PlayerRole.values().toList() }
+    val selectedFilterRole = roles.getOrNull(selectedFilterIndex)
+
+    val filteredPlayers = remember(players, searchQuery, selectedFilterRole) {
+        players.filter { player ->
+            val matchesQuery = player.fullName.contains(searchQuery, ignoreCase = true)
+            val matchesRole = selectedFilterRole == null || player.role == selectedFilterRole
+            matchesQuery && matchesRole
+        }
+    }
+
+    val roleTabLabels = remember(players) {
+        listOf("All (${players.size})") + PlayerRole.values().map { role ->
+            val count = players.count { it.role == role }
+            "${role.displayName} ($count)"
+        }
     }
 
     Scaffold(
@@ -108,35 +112,39 @@ fun SquadScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Header Row with Compare action
+            // Header Row with RCB Crest and Compare action
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Squad Management",
-                            color = tokens.textPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp
-                        )
-                        Text(
-                            text = "${players.size} registered players • Tap card for full profile & statistics",
-                            color = tokens.textSecondary,
-                            fontSize = 12.sp
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RcbCrestLogo(size = 42.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "My Squad",
+                                color = tokens.textPrimary,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 21.sp
+                            )
+                            Text(
+                                text = "${players.size} Rajpoot Cricket Boys • Tap for full stats",
+                                color = tokens.textSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
                     }
 
                     // Compare Players button
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(18.dp))
                             .background(tokens.glassCardElevated)
-                            .border(1.dp, tokens.accentGold, RoundedCornerShape(12.dp))
+                            .border(1.dp, tokens.accentGold, RoundedCornerShape(18.dp))
                             .clickable { onNavigateToComparison(0L) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -163,7 +171,7 @@ fun SquadScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search player by name...", color = tokens.textSecondary) },
+                    placeholder = { Text("Search player by name or jersey...", color = tokens.textSecondary) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.accentGold) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -175,48 +183,37 @@ fun SquadScreen(
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = tokens.accentGold,
-                        unfocusedBorderColor = tokens.glassBorder,
-                        focusedContainerColor = tokens.glassCardElevated,
-                        unfocusedContainerColor = tokens.glassCardElevated,
+                        unfocusedBorderColor = tokens.glassCardBorder,
+                        focusedContainerColor = tokens.glassCardBackground,
+                        unfocusedContainerColor = tokens.glassCardBackground,
                         focusedTextColor = tokens.textPrimary,
                         unfocusedTextColor = tokens.textPrimary
                     ),
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Role Filter Chips
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        SquadFilterChip(
-                            label = "All (${players.size})",
-                            isSelected = selectedFilterRole == null,
-                            onClick = { selectedFilterRole = null }
-                        )
-                    }
-                    items(PlayerRole.values()) { role ->
-                        val count = players.count { it.role == role }
-                        SquadFilterChip(
-                            label = "${role.displayName} ($count)",
-                            isSelected = selectedFilterRole == role,
-                            onClick = { selectedFilterRole = role }
-                        )
-                    }
-                }
+                // Cyan Pill Role Filter Tabs
+                CyanPillTabs(
+                    tabs = roleTabLabels,
+                    selectedIndex = selectedFilterIndex,
+                    onTabSelected = { selectedFilterIndex = it }
+                )
             }
 
             // Player List
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 80.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 84.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(filteredPlayers) { player ->
+                itemsIndexed(filteredPlayers, key = { _, p -> p.id }) { index, player ->
                     val stats = rankings.find { it.playerName.equals(player.fullName, ignoreCase = true) }
                     PlayerCard(
                         player = player,
                         stats = stats,
+                        index = index,
                         onClick = { onNavigateToProfile(player.id) },
                         onEdit = { editingPlayer = player },
                         onDelete = { viewModel.deletePlayer(player.id) }
@@ -226,7 +223,7 @@ fun SquadScreen(
         }
     }
 
-    // Add Player Dialog (using default or edit dialog)
+    // Add Player Dialog
     if (showAddDialog) {
         val newPlayer = remember {
             PlayerEntity(
@@ -259,33 +256,10 @@ fun SquadScreen(
 }
 
 @Composable
-fun SquadFilterChip(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val tokens = LiquidGlassTheme.tokens
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isSelected) tokens.accentGold else tokens.glassCardElevated)
-            .border(1.dp, if (isSelected) tokens.accentGold else tokens.glassBorder, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = label,
-            color = if (isSelected) tokens.buttonContent else tokens.textSecondary,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-        )
-    }
-}
-
-@Composable
 fun PlayerCard(
     player: PlayerEntity,
     stats: PlayerStats?,
+    index: Int = 0,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -293,8 +267,10 @@ fun PlayerCard(
     val tokens = LiquidGlassTheme.tokens
     InteractiveGlassCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        borderColor = tokens.glassBorder
+        modifier = Modifier
+            .fillMaxWidth()
+            .liquid3DEntrance(delayMs = (index * 25).coerceAtMost(200)),
+        borderColor = tokens.glassCardBorder
     ) {
         Row(
             modifier = Modifier
@@ -305,7 +281,7 @@ fun PlayerCard(
             // Jersey / Avatar / Photo
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(tokens.glassCardElevated)
                     .border(1.5.dp, tokens.accentGold, CircleShape),
@@ -324,7 +300,7 @@ fun PlayerCard(
                     Text(
                         text = "#${player.jerseyNumber}",
                         color = tokens.accentGold,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.sp
                     )
                 } else {
@@ -377,15 +353,15 @@ fun PlayerCard(
                 if (stats != null && (stats.runs > 0 || stats.wickets > 0)) {
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "${stats.runs} runs (HS: ${stats.highestScore}) | ${stats.wickets} wkts",
+                        text = "${stats.runs} runs (HS: ${stats.highestScore})  •  ${stats.wickets} wkts",
                         color = tokens.accentGold,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                 } else {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Tap to view profile & history",
+                        text = "Tap to view profile & match history",
                         color = tokens.textMuted,
                         fontSize = 11.sp
                     )
@@ -398,7 +374,7 @@ fun PlayerCard(
                     Icon(Icons.Default.Edit, contentDescription = "Edit", tint = tokens.textSecondary, modifier = Modifier.size(18.dp))
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0x88FF5252), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0x99FF5252), modifier = Modifier.size(18.dp))
                 }
             }
         }
